@@ -51,6 +51,28 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+    /* ---------- Responsive / any-iPhone layout ---------- */
+    html { -webkit-text-size-adjust: 100%; }
+    html, body { overflow-x: hidden; }
+    body { min-height: 100vh; min-height: 100dvh; }
+
+    /* Keep content clear of the notch / Dynamic Island, rounded corners and the home bar */
+    .app-header {
+      padding-top: calc(0.75rem + env(safe-area-inset-top));
+      padding-bottom: 0.75rem;
+      padding-left: calc(1rem + env(safe-area-inset-left));
+      padding-right: calc(1rem + env(safe-area-inset-right));
+    }
+    .app-main {
+      padding-left: calc(1rem + env(safe-area-inset-left));
+      padding-right: calc(1rem + env(safe-area-inset-right));
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+    }
+
+    /* Photo cards scale with the screen: max 320px, but never wider than the phone allows */
+    .photo-card { width: min(20rem, calc(100vw - 3rem - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+    .photo-card-img { width: 100%; aspect-ratio: 1 / 1; }
+
     /* Safe text wrapping for long text / emojis / long words */
     .safe-text {
       white-space: pre-wrap;
@@ -77,7 +99,7 @@
       background: rgba(0,0,0,0.95);
       display: none;
       flex-direction: column;
-      padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) 12px;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
       box-sizing: border-box;
     }
     #image-modal.open { display: flex; }
@@ -109,7 +131,7 @@
     #modal-caption-box {
       flex: 0 0 auto;
       max-height: 32vh;
-      max-height: 32dvh;
+      max-height: min(32dvh, 260px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -139,17 +161,27 @@
     }
 
     body.modal-open { overflow: hidden; }
+
+    /* Short screens (iPhone SE / mini): give the photo more room */
+    @media (max-height: 700px) {
+      #modal-caption-box { max-height: 24dvh; }
+    }
+    /* Landscape phones: very little height, keep the photo as big as possible */
+    @media (orientation: landscape) and (max-height: 500px) {
+      #modal-caption-box { max-height: 28dvh; }
+      #modal-image-container { margin: 2px 0; }
+    }
   </style>
 </head>
-<body class="bg-rose-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-rose-200">
+<body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
 
   <!-- Header -->
-  <header class="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-rose-100 px-4 py-3 shadow-sm">
+  <header class="app-header sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-rose-100 shadow-sm">
     <div class="max-w-md mx-auto flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-2xl">💖</span>
         <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
-        <span class="text-[9px] font-bold text-rose-400 bg-rose-100 px-1.5 py-0.5 rounded-full">v2 swipe</span>
+        <span class="text-[9px] font-bold text-rose-400 bg-rose-100 px-1.5 py-0.5 rounded-full">v3 fit</span>
       </div>
       <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer"
          class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95">
@@ -160,7 +192,7 @@
   </header>
 
   <!-- Main Container -->
-  <main class="flex-1 max-w-md w-full mx-auto p-4 pb-24 space-y-6">
+  <main class="app-main flex-1 max-w-md w-full mx-auto pt-4 space-y-6">
 
     <!-- Screen Switcher Tabs -->
     <div class="flex bg-white/70 p-1 rounded-xl border border-rose-100 shadow-sm">
@@ -251,10 +283,10 @@
         <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
           <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
-        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -744,8 +776,8 @@
       } else {
         photosCarousel.innerHTML = photos.map((p, index) => {
           return `
-            <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
-              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group flex-shrink-0" onclick="openModalById(${Number(p.id)})">
+            <div class="snap-center flex-shrink-0 photo-card bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
+              <div class="relative photo-card-img bg-slate-100 cursor-pointer group flex-shrink-0" onclick="openModalById(${Number(p.id)})">
                 <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
                   <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
