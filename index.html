@@ -47,7 +47,7 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     #modal-image-container {
-      touch-action: pan-x pan-y;
+      touch-action: auto;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -168,9 +168,9 @@
       </div>
     </div>
 
-    <!-- Center Zoom Area -->
-    <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container">
-      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg cursor-pointer" alt="Zoomable Memory">
+    <!-- Center Flexible Zoom Area -->
+    <div class="flex-1 flex items-center justify-center overflow-auto my-2 p-2" id="modal-image-container">
+      <img id="modal-image" src="" class="max-w-full max-h-[60vh] object-contain rounded-lg cursor-pointer block mx-auto" alt="Zoomable Memory">
     </div>
 
     <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto z-10">
@@ -201,7 +201,7 @@
     let photos = [];
     let journal = [];
 
-    // Permanently bind click and touch handlers to the modal image once on load
+    // Permanent global handler for any image opened in modal
     document.addEventListener('DOMContentLoaded', () => {
       const modalImg = document.getElementById('modal-image');
       if (modalImg) {
