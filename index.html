@@ -45,24 +45,15 @@
   <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    #image-modal {
-      touch-action: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
+    
     #modal-image-container {
-      touch-action: none;
-      overflow: hidden;
-      -webkit-user-select: none;
-      user-select: none;
+      touch-action: pan-x pan-y;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
     #modal-image {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       transform-origin: center center;
-      will-change: transform;
-      touch-action: none;
-      -webkit-user-drag: none;
-      -webkit-touch-callout: none;
     }
   </style>
 </head>
@@ -164,12 +155,12 @@
   </main>
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
-  <div id="image-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex-col justify-between p-3 sm:p-6">
+  <div id="image-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-300">
     <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 z-10">
       <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       <div class="flex items-center gap-2">
-        <button onclick="resetModalZoom()" class="bg-white/20 hover:bg-white/30 text-white px-3 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition">
-          Reset
+        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+          <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
         <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
@@ -177,13 +168,13 @@
       </div>
     </div>
 
-    <!-- Center Interactive Pinch & Drag Canvas Container -->
-    <div class="flex-1 flex items-center justify-center overflow-hidden my-2 relative w-full" id="modal-image-container">
-      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg" alt="Zoomable Memory" draggable="false">
+    <!-- Center Zoom Area with Double-Tap Support -->
+    <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container">
+      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg cursor-pointer" alt="Zoomable Memory">
     </div>
 
     <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto z-10">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note (Double-tap image to zoom)</p>
       <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium"></p>
     </div>
   </div>
@@ -205,18 +196,10 @@
     let selectedFileBase64 = null;
     let selectedFileMime = null;
     let selectedFileName = null;
+    let isZoomed = false;
 
     let photos = [];
     let journal = [];
-
-    function escapeHtml(str) {
-      return String(str == null ? '' : str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
 
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
@@ -336,177 +319,49 @@
       }
     }
 
-    /* ---------- Native pinch-zoom / pan / double-tap (works on iOS Safari) ---------- */
-    const MIN_SCALE = 1;
-    const MAX_SCALE = 5;
-
-    let scale = 1;
-    let posX = 0;
-    let posY = 0;
-
-    let pinchStartDist = 0;
-    let pinchStartScale = 1;
-    let panStartX = 0;
-    let panStartY = 0;
-    let startPosX = 0;
-    let startPosY = 0;
-    let lastTapTime = 0;
-    let gesture = null; // 'pinch' | 'pan' | null
-
-    function touchDistance(t) {
-      const dx = t[0].clientX - t[1].clientX;
-      const dy = t[0].clientY - t[1].clientY;
-      return Math.hypot(dx, dy);
-    }
-
-    function applyTransform() {
-      const img = document.getElementById('modal-image');
-      img.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(${scale})`;
-    }
-
-    function clampPosition() {
-      const img = document.getElementById('modal-image');
-      const container = document.getElementById('modal-image-container');
-      const maxX = Math.max(0, (img.offsetWidth * scale - container.clientWidth) / 2);
-      const maxY = Math.max(0, (img.offsetHeight * scale - container.clientHeight) / 2);
-      posX = Math.max(-maxX, Math.min(maxX, posX));
-      posY = Math.max(-maxY, Math.min(maxY, posY));
-    }
-
-    function resetModalZoom() {
-      scale = 1;
-      posX = 0;
-      posY = 0;
-      gesture = null;
-      const img = document.getElementById('modal-image');
-      img.style.transition = 'transform 0.2s ease';
-      applyTransform();
-      setTimeout(() => { img.style.transition = 'none'; }, 220);
-    }
-
-    function onTouchStart(e) {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        gesture = 'pinch';
-        pinchStartDist = touchDistance(e.touches);
-        pinchStartScale = scale;
-      } else if (e.touches.length === 1) {
-        const now = Date.now();
-        if (now - lastTapTime < 300) {
-          // double tap: toggle zoom
-          e.preventDefault();
-          if (scale > 1) {
-            resetModalZoom();
-          } else {
-            scale = 2.5;
-            posX = 0;
-            posY = 0;
-            const img = document.getElementById('modal-image');
-            img.style.transition = 'transform 0.2s ease';
-            applyTransform();
-            setTimeout(() => { img.style.transition = 'none'; }, 220);
-          }
-          lastTapTime = 0;
-          return;
-        }
-        lastTapTime = now;
-        gesture = 'pan';
-        panStartX = e.touches[0].clientX;
-        panStartY = e.touches[0].clientY;
-        startPosX = posX;
-        startPosY = posY;
-      }
-    }
-
-    function onTouchMove(e) {
-      e.preventDefault(); // stops Safari from zooming/scrolling the page
-      if (e.touches.length === 2) {
-        if (gesture !== 'pinch') {
-          gesture = 'pinch';
-          pinchStartDist = touchDistance(e.touches);
-          pinchStartScale = scale;
-        }
-        const dist = touchDistance(e.touches);
-        scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, pinchStartScale * (dist / pinchStartDist)));
-        clampPosition();
-        applyTransform();
-      } else if (e.touches.length === 1 && gesture === 'pan' && scale > 1) {
-        posX = startPosX + (e.touches[0].clientX - panStartX);
-        posY = startPosY + (e.touches[0].clientY - panStartY);
-        clampPosition();
-        applyTransform();
-      }
-    }
-
-    function onTouchEnd(e) {
-      if (e.touches.length === 0) {
-        gesture = null;
-        if (scale <= 1.02) {
-          resetModalZoom();
-        }
-      } else if (e.touches.length === 1) {
-        // went from 2 fingers to 1: continue as pan from current position
-        gesture = 'pan';
-        panStartX = e.touches[0].clientX;
-        panStartY = e.touches[0].clientY;
-        startPosX = posX;
-        startPosY = posY;
-      }
-    }
-
-    function onWheel(e) {
-      // desktop: ctrl/trackpad pinch or wheel zoom
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 1.1 : 0.9;
-      scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * delta));
-      if (scale <= 1) { posX = 0; posY = 0; }
-      clampPosition();
-      applyTransform();
-    }
-
-    function initGestureControls() {
-      const container = document.getElementById('modal-image-container');
-      const modal = document.getElementById('image-modal');
-
-      // passive:false is REQUIRED so preventDefault works on iOS
-      container.addEventListener('touchstart', onTouchStart, { passive: false });
-      container.addEventListener('touchmove', onTouchMove, { passive: false });
-      container.addEventListener('touchend', onTouchEnd, { passive: false });
-      container.addEventListener('touchcancel', onTouchEnd, { passive: false });
-      container.addEventListener('wheel', onWheel, { passive: false });
-
-      // iOS Safari proprietary gesture events (page-level pinch)
-      ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt => {
-        modal.addEventListener(evt, e => e.preventDefault(), { passive: false });
-      });
-    }
-
-    function openModal(index) {
-      const p = photos[index];
-      if (!p) return;
+    function openModal(imgSrc, captionText, dateText) {
       const modal = document.getElementById('image-modal');
       const modalImg = document.getElementById('modal-image');
-      document.getElementById('modal-caption').innerText = p.caption || '';
-      document.getElementById('modal-date').innerText = p.date || '';
-      modalImg.src = p.imageData;
-      modalImg.style.transition = 'none';
-
-      scale = 1; posX = 0; posY = 0; gesture = null;
-      applyTransform();
-
+      document.getElementById('modal-caption').innerText = captionText;
+      document.getElementById('modal-date').innerText = dateText;
+      modalImg.src = imgSrc;
+      
+      isZoomed = false;
+      modalImg.style.transform = 'scale(1)';
+      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
+      
       modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      document.body.style.overflow = 'hidden';
     }
 
     function closeModal() {
-      const modal = document.getElementById('image-modal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      document.body.style.overflow = '';
-      scale = 1; posX = 0; posY = 0;
-      applyTransform();
+      document.getElementById('image-modal').classList.add('hidden');
     }
+
+    function toggleZoom() {
+      const modalImg = document.getElementById('modal-image');
+      const zoomIcon = document.getElementById('zoom-icon');
+      isZoomed = !isZoomed;
+      if (isZoomed) {
+        modalImg.style.transform = 'scale(2.5)';
+        zoomIcon.className = 'fas fa-search-minus';
+      } else {
+        modalImg.style.transform = 'scale(1)';
+        zoomIcon.className = 'fas fa-search-plus';
+      }
+    }
+
+    // Add Double-Tap gesture support for mobile
+    let lastTapTime = 0;
+    const modalImgEl = document.getElementById('modal-image');
+    modalImgEl.addEventListener('touchend', function(e) {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+      if (tapLength < 300 && tapLength > 0) {
+        e.preventDefault();
+        toggleZoom();
+      }
+      lastTapTime = currentTime;
+    });
 
     function renderPhotos() {
       const photosCarousel = document.getElementById('photos-carousel');
@@ -521,9 +376,11 @@
           </div>
         `;
       } else {
-        photosCarousel.innerHTML = photos.map((p, index) => `
+        photosCarousel.innerHTML = photos.map((p, index) => {
+          const safeCaption = (p.caption || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          return `
             <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
-              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModal(${index})">
+              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModal('${p.imageData}', '${safeCaption}', '${p.date}')">
                 <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                   <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
@@ -535,14 +392,15 @@
                 </span>
               </div>
               <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
-                <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3">${escapeHtml(p.caption)}</p>
+                <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3">${p.caption}</p>
                 <div class="flex justify-between items-center pt-1">
-                  <span class="text-[10px] text-slate-400">${escapeHtml(p.date)}</span>
-                  <button onclick="openModal(${index})" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
+                  <span class="text-[10px] text-slate-400">${p.date}</span>
+                  <button onclick="openModal('${p.imageData}', '${safeCaption}','${p.date}')" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
                 </div>
               </div>
             </div>
-          `).join('');
+          `;
+        }).join('');
       }
     }
 
@@ -556,17 +414,15 @@
       ` : journal.map(j => `
         <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm space-y-1">
           <div class="flex justify-between items-center">
-            <span class="text-xs font-bold text-rose-600">${escapeHtml(j.author)}</span>
-            <span class="text-[10px] text-slate-400">${escapeHtml(j.date)}</span>
+            <span class="text-xs font-bold text-rose-600">${j.author}</span>
+            <span class="text-[10px] text-slate-400">${j.date}</span>
           </div>
-          <p class="text-xs text-slate-700 leading-relaxed">${escapeHtml(j.text)}</p>
+          <p class="text-xs text-slate-700 leading-relaxed">${j.text}</p>
         </div>
       `).join('');
     }
 
-    initGestureControls();
-    renderPhotos();
-    renderJournal();
+    render();
   </script>
 </body>
 </html>
