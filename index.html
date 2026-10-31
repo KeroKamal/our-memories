@@ -168,7 +168,7 @@
       </div>
     </div>
 
-    <!-- Center Zoom Area with Double-Tap Support -->
+    <!-- Center Zoom Area -->
     <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container">
       <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg cursor-pointer" alt="Zoomable Memory">
     </div>
@@ -197,6 +197,7 @@
     let selectedFileMime = null;
     let selectedFileName = null;
     let isZoomed = false;
+    let lastTapTime = 0;
 
     let photos = [];
     let journal = [];
@@ -330,6 +331,17 @@
       modalImg.style.transform = 'scale(1)';
       document.getElementById('zoom-icon').className = 'fas fa-search-plus';
       
+      // Always attach touch double-tap listener freshly on open
+      modalImg.ontouchend = function(e) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        if (tapLength < 300 && tapLength > 0) {
+          e.preventDefault();
+          toggleZoom();
+        }
+        lastTapTime = currentTime;
+      };
+
       modal.classList.remove('hidden');
     }
 
@@ -349,19 +361,6 @@
         zoomIcon.className = 'fas fa-search-plus';
       }
     }
-
-    // Add Double-Tap gesture support for mobile
-    let lastTapTime = 0;
-    const modalImgEl = document.getElementById('modal-image');
-    modalImgEl.addEventListener('touchend', function(e) {
-      const currentTime = new Date().getTime();
-      const tapLength = currentTime - lastTapTime;
-      if (tapLength < 300 && tapLength > 0) {
-        e.preventDefault();
-        toggleZoom();
-      }
-      lastTapTime = currentTime;
-    });
 
     function renderPhotos() {
       const photosCarousel = document.getElementById('photos-carousel');
