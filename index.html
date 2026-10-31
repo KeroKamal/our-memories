@@ -20,9 +20,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-  <!-- Touch Gesture & Pinch-to-Zoom Library -->
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-
   <script>
     tailwind.config = {
       theme: {
@@ -50,15 +47,13 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     #modal-image-container {
-      touch-action: none;
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: pan-x pan-y;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
     #modal-image {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       transform-origin: center center;
-      will-change: transform;
-      touch-action: none;
     }
   </style>
 </head>
@@ -164,8 +159,8 @@
     <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 z-10">
       <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       <div class="flex items-center gap-2">
-        <button onclick="resetModalZoom()" class="bg-white/20 hover:bg-white/30 text-white px-3 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition">
-          Reset
+        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+          <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
         <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
@@ -173,13 +168,13 @@
       </div>
     </div>
 
-    <!-- Center Interactive Pinch & Drag Canvas Container -->
-    <div class="flex-1 flex items-center justify-center overflow-hidden my-2 relative w-full" id="modal-image-container">
-      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg" alt="Zoomable Memory">
+    <!-- Center Zoom Area with Double-Tap Support -->
+    <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container">
+      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg cursor-pointer" alt="Zoomable Memory">
     </div>
 
     <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto z-10">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note</p>
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note (Double-tap image to zoom)</p>
       <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium"></p>
     </div>
   </div>
@@ -201,18 +196,10 @@
     let selectedFileBase64 = null;
     let selectedFileMime = null;
     let selectedFileName = null;
+    let isZoomed = false;
 
     let photos = [];
     let journal = [];
-
-    // Hammer.js Touch & Gesture Control
-    let hammerInstance = null;
-    let currentScale = 1;
-    let lastScale = 1;
-    let currentPosX = 0;
-    let currentPosY = 0;
-    let lastPosX = 0;
-    let lastPosY = 0;
 
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
@@ -332,71 +319,6 @@
       }
     }
 
-    function initGestureControls() {
-      const imgElement = document.getElementById('modal-image');
-      const containerElement = document.getElementById('modal-image-container');
-
-      if (hammerInstance) {
-        hammerInstance.destroy();
-      }
-
-      hammerInstance = new Hammer.Manager(containerElement);
-      const pinch = new Hammer.Pinch();
-      const pan = new Hammer.Pan({ threshold: 0, pointers: 0 });
-
-      pinch.recognizeWith(pan);
-      hammerInstance.add([pinch, pan]);
-
-      hammerInstance.on('pinchstart pinchmove', (e) => {
-        if (e.type === 'pinchstart') {
-          lastScale = currentScale;
-        }
-        currentScale = Math.max(1, Math.min(lastScale * e.scale, 5));
-        applyTransform();
-      });
-
-      hammerInstance.on('pinchend', () => {
-        lastScale = currentScale;
-        if (currentScale <= 1) {
-          resetModalZoom();
-        }
-      });
-
-      hammerInstance.on('panstart panmove', (e) => {
-        if (currentScale > 1) {
-          if (e.type === 'panstart') {
-            lastPosX = currentPosX;
-            lastPosY = currentPosY;
-          }
-          currentPosX = lastPosX + e.deltaX;
-          currentPosY = lastPosY + e.deltaY;
-          applyTransform();
-        }
-      });
-
-      hammerInstance.on('panend', () => {
-        if (currentScale > 1) {
-          lastPosX = currentPosX;
-          lastPosY = currentPosY;
-        }
-      });
-    }
-
-    function applyTransform() {
-      const imgElement = document.getElementById('modal-image');
-      imgElement.style.transform = `translate3d(${currentPosX}px, ${currentPosY}px, 0) scale(${currentScale})`;
-    }
-
-    function resetModalZoom() {
-      currentScale = 1;
-      lastScale = 1;
-      currentPosX = 0;
-      currentPosY = 0;
-      lastPosX = 0;
-      lastPosY = 0;
-      applyTransform();
-    }
-
     function openModal(imgSrc, captionText, dateText) {
       const modal = document.getElementById('image-modal');
       const modalImg = document.getElementById('modal-image');
@@ -404,18 +326,42 @@
       document.getElementById('modal-date').innerText = dateText;
       modalImg.src = imgSrc;
       
-      resetModalZoom();
+      isZoomed = false;
+      modalImg.style.transform = 'scale(1)';
+      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
+      
       modal.classList.remove('hidden');
-      initGestureControls();
     }
 
     function closeModal() {
       document.getElementById('image-modal').classList.add('hidden');
-      if (hammerInstance) {
-        hammerInstance.destroy();
-        hammerInstance = null;
+    }
+
+    function toggleZoom() {
+      const modalImg = document.getElementById('modal-image');
+      const zoomIcon = document.getElementById('zoom-icon');
+      isZoomed = !isZoomed;
+      if (isZoomed) {
+        modalImg.style.transform = 'scale(2.5)';
+        zoomIcon.className = 'fas fa-search-minus';
+      } else {
+        modalImg.style.transform = 'scale(1)';
+        zoomIcon.className = 'fas fa-search-plus';
       }
     }
+
+    // Add Double-Tap gesture support for mobile
+    let lastTapTime = 0;
+    const modalImgEl = document.getElementById('modal-image');
+    modalImgEl.addEventListener('touchend', function(e) {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+      if (tapLength < 300 && tapLength > 0) {
+        e.preventDefault();
+        toggleZoom();
+      }
+      lastTapTime = currentTime;
+    });
 
     function renderPhotos() {
       const photosCarousel = document.getElementById('photos-carousel');
