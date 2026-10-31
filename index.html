@@ -80,31 +80,25 @@
     #modal-image-container {
       flex: 1 1 auto;
       min-height: 0;              /* IMPORTANT: lets the flex child shrink instead of pushing content away */
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      display: flex;              /* m-auto on the image centers it without clipping when zoomed */
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin: 4px 0;
+      touch-action: none;         /* we handle pinch / pan / double-tap ourselves */
     }
     #modal-image {
-      margin: auto;
       display: block;
-      flex-shrink: 0;
-      width: auto;
-      height: auto;
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
       border-radius: 8px;
-      cursor: zoom-in;
+      transform-origin: center center;
+      will-change: transform;
       -webkit-user-select: none;
       user-select: none;
-    }
-    /* Zoomed: image becomes bigger than the container and can be scrolled/panned in every direction */
-    #modal-image.zoomed {
-      width: 250%;
-      max-width: none;
-      max-height: none;
-      cursor: zoom-out;
+      -webkit-touch-callout: none;
+      -webkit-user-drag: none;
     }
 
     #modal-caption-box {
@@ -302,11 +296,162 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const modalImg = document.getElementById('modal-image');
-      modalImg.addEventListener('click', toggleZoom);
+    // ---------- Zoom state & gestures (pinch, pan, double-tap) ----------
+    let zScale = 1, zX = 0, zY = 0;
+    const MIN_SCALE = 1, MAX_SCALE = 5, DOUBLE_TAP_SCALE = 2.5;
 
-      // Tap on the dark area (not on image / caption / buttons) closes nothing by accident; Escape closes on desktop
+    const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+    function applyTransform(animate) {
+      const img = document.getElementById('modal-image');
+      img.style.transition = animate ? 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' : 'none';
+      img.style.transform = `translate(${zX}px, ${zY}px) scale(${zScale})`;
+      isZoomed = zScale > 1.01;
+      document.getElementById('zoom-icon').className = isZoomed ? 'fas fa-search-minus' : 'fas fa-search-plus';
+    }
+
+    function clampPan() {
+      const img = document.getElementById('modal-image');
+      const cont = document.getElementById('modal-image-container');
+      const maxX = Math.max(0, (img.offsetWidth * zScale - cont.clientWidth) / 2);
+      const maxY = Math.max(0, (img.offsetHeight * zScale - cont.clientHeight) / 2);
+      zX = Math.min(maxX, Math.max(-maxX, zX));
+      zY = Math.min(maxY, Math.max(-maxY, zY));
+    }
+
+    function containerCenter() {
+      const r = document.getElementById('modal-image-container').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    // Zoom to newScale keeping the point (px, py) (screen coords) under the finger
+    function zoomAt(newScale, px, py, animate) {
+      const c = containerCenter();
+      newScale = clampScale(newScale);
+      const qx = (px - c.x - zX) / zScale;
+      const qy = (py - c.y - zY) / zScale;
+      zScale = newScale;
+      zX = px - c.x - qx * newScale;
+      zY = py - c.y - qy * newScale;
+      if (zScale <= 1.001) { zScale = 1; zX = 0; zY = 0; }
+      clampPan();
+      applyTransform(animate);
+    }
+
+    function resetZoom(animate) {
+      zScale = 1; zX = 0; zY = 0;
+      applyTransform(animate);
+    }
+
+    function setupZoomGestures() {
+      const cont = document.getElementById('modal-image-container');
+      const modal = document.getElementById('image-modal');
+
+      let mode = null;                 // 'pan' | 'pinch' | null
+      let startDist = 0, startScale = 1, startX = 0, startY = 0, startMid = { x: 0, y: 0 };
+      let panTouch = { x: 0, y: 0 }, panStartX = 0, panStartY = 0, moved = false;
+      let lastTap = 0, lastTapPos = { x: 0, y: 0 };
+
+      const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+
+      function beginPan(t) {
+        mode = 'pan';
+        panTouch = { x: t.clientX, y: t.clientY };
+        panStartX = zX; panStartY = zY;
+      }
+
+      cont.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          mode = 'pinch';
+          startDist = dist(e.touches[0], e.touches[1]);
+          startScale = zScale; startX = zX; startY = zY;
+          startMid = mid(e.touches[0], e.touches[1]);
+          moved = true; // a pinch is never a tap
+        } else if (e.touches.length === 1) {
+          beginPan(e.touches[0]);
+          moved = false;
+        }
+      }, { passive: false });
+
+      cont.addEventListener('touchmove', (e) => {
+        if (mode === 'pinch' && e.touches.length === 2) {
+          e.preventDefault();
+          const m = mid(e.touches[0], e.touches[1]);
+          const ns = clampScale(startScale * dist(e.touches[0], e.touches[1]) / startDist);
+          const c = containerCenter();
+          const qx = (startMid.x - c.x - startX) / startScale;
+          const qy = (startMid.y - c.y - startY) / startScale;
+          zScale = ns;
+          zX = m.x - c.x - qx * ns;
+          zY = m.y - c.y - qy * ns;
+          clampPan();
+          applyTransform(false);
+        } else if (mode === 'pan' && e.touches.length === 1) {
+          e.preventDefault();
+          const t = e.touches[0];
+          const dx = t.clientX - panTouch.x;
+          const dy = t.clientY - panTouch.y;
+          if (Math.hypot(dx, dy) > 8) moved = true;
+          if (zScale > 1) {
+            zX = panStartX + dx;
+            zY = panStartY + dy;
+            clampPan();
+            applyTransform(false);
+          }
+        }
+      }, { passive: false });
+
+      cont.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+          const t = e.changedTouches[0];
+          if (mode === 'pan' && !moved) {
+            const now = Date.now();
+            if (now - lastTap < 300 && Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y) < 40) {
+              // DOUBLE TAP
+              e.preventDefault();
+              lastTap = 0;
+              if (zScale > 1.01) resetZoom(true);
+              else zoomAt(DOUBLE_TAP_SCALE, t.clientX, t.clientY, true);
+            } else {
+              lastTap = now;
+              lastTapPos = { x: t.clientX, y: t.clientY };
+            }
+          }
+          if (zScale < 1.01) resetZoom(false);
+          mode = null;
+        } else if (e.touches.length === 1) {
+          // one finger lifted after a pinch -> continue as pan with the remaining finger
+          beginPan(e.touches[0]);
+          moved = true;
+        }
+      }, { passive: false });
+
+      cont.addEventListener('touchcancel', () => { mode = null; });
+
+      // Stop iOS Safari from zooming the whole page while the lightbox is open
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev =>
+        modal.addEventListener(ev, (e) => e.preventDefault())
+      );
+
+      // Desktop: double-click and mouse wheel
+      cont.addEventListener('dblclick', (e) => {
+        if (zScale > 1.01) resetZoom(true);
+        else zoomAt(DOUBLE_TAP_SCALE, e.clientX, e.clientY, true);
+      });
+      cont.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoomAt(zScale * (e.deltaY < 0 ? 1.15 : 0.87), e.clientX, e.clientY, false);
+      }, { passive: false });
+
+      window.addEventListener('resize', () => resetZoom(false));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupZoomGestures();
+      document.getElementById('modal-image').setAttribute('draggable', 'false');
+
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeModal();
       });
@@ -443,12 +588,7 @@
       document.getElementById('modal-date').textContent = photo.date || '';
       modalImg.src = photo.imageData;
 
-      isZoomed = false;
-      modalImg.classList.remove('zoomed');
-      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
-
-      // reset scroll positions
-      document.getElementById('modal-image-container').scrollTo(0, 0);
+      resetZoom(false);
       document.getElementById('modal-caption-box').scrollTo(0, 0);
 
       document.getElementById('image-modal').classList.add('open');
@@ -460,22 +600,13 @@
       document.body.classList.remove('modal-open');
     }
 
+    // Used by the zoom button in the top bar: zoom in at the center / zoom back out
     function toggleZoom() {
-      const modalImg = document.getElementById('modal-image');
-      const zoomIcon = document.getElementById('zoom-icon');
-      const container = document.getElementById('modal-image-container');
-      isZoomed = !isZoomed;
-      modalImg.classList.toggle('zoomed', isZoomed);
-      zoomIcon.className = isZoomed ? 'fas fa-search-minus' : 'fas fa-search-plus';
-
-      if (isZoomed) {
-        // start centered so you can pan in every direction
-        requestAnimationFrame(() => {
-          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
-          container.scrollTop = (container.scrollHeight - container.clientHeight) / 2;
-        });
+      if (zScale > 1.01) {
+        resetZoom(true);
       } else {
-        container.scrollTo(0, 0);
+        const c = containerCenter();
+        zoomAt(DOUBLE_TAP_SCALE, c.x, c.y, true);
       }
     }
 
