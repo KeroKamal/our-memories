@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kero & Tota ❤</title>
+  
+  <!-- Apple PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kero & Tota">
+  <link rel="apple-touch-icon" href="https://img.icons8.com/emoji/192/heart-suit.png">
+  
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            rose: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              200: '#fecdd3',
+              400: '#fb7185',
+              500: '#f43f5e',
+              600: '#e11d48',
+            }
+          },
+          fontFamily: {
+            cursive: ['"Dancing Script"', 'cursive'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    #modal-image {
+      transition: transform 0.2s ease;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="bg-rose-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-rose-200">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-rose-100 px-4 py-3 shadow-sm">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">💖</span>
+        <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
+      </div>
+      <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer" 
+         class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95">
+        <i class="fab fa-google-drive text-sm text-emerald-600"></i>
+        <span>Open Drive</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-md w-full mx-auto p-4 pb-24 space-y-6">
+
+    <!-- Screen Switcher Tabs -->
+    <div class="flex bg-white/70 p-1 rounded-xl border border-rose-100 shadow-sm">
+      <button id="screen-photos-btn" onclick="switchScreen('photos')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm">
+        <i class="fas fa-images mr-1"></i> Memories Gallery
+      </button>
+      <button id="screen-journal-btn" onclick="switchScreen('journal')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600">
+        <i class="fas fa-book-heart mr-1"></i> Shared Journal
+      </button>
+    </div>
+
+    <!-- SCREEN 1: MEMORIES / PHOTO GALLERY -->
+    <section id="screen-photos" class="space-y-4">
+      
+      <!-- Upload Box -->
+      <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-4">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Upload New Memory</h3>
+        
+        <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+        
+        <!-- Preview Box -->
+        <div id="image-preview-container" class="hidden relative rounded-xl overflow-hidden border border-rose-200">
+          <img id="image-preview" src="" class="w-full h-48 object-cover">
+          <button onclick="clearSelectedFile()" class="absolute top-2 right-2 bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()" 
+                class="w-full flex items-center justify-center gap-2 bg-rose-50 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-xl text-xs font-bold transition">
+          <i class="fas fa-camera text-base"></i>
+          <span>Choose Image from Phone</span>
+        </button>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Caption / Note under this image</label>
+          <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..." 
+                    class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
+        </div>
+
+        <button id="upload-drive-btn" onclick="uploadToDrive()" disabled class="w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <span id="upload-btn-text">Select an image first</span>
+        </button>
+      </div>
+
+      <!-- Memories Timeline -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center px-1">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Our Memories Timeline</h3>
+          <span id="photo-counter" class="text-[10px] text-rose-500 font-bold bg-rose-100 px-2 py-0.5 rounded-full">0 memories</span>
+        </div>
+        <div id="photos-carousel" class="flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar pb-2">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: JOURNAL -->
+    <section id="screen-journal" class="space-y-4 hidden">
+      <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-3">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Journal Entry</h3>
+        <input type="text" id="journal-author" placeholder="Your Name (Kero or Tota)" 
+               class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50">
+        <textarea id="journal-text" rows="3" placeholder="Write thoughts or notes to each other..." 
+                  class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
+        <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition">
+          Post Journal Note
+        </button>
+      </div>
+
+      <div id="journal-feed" class="space-y-3">
+        <!-- Dynamically Populated -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
+  <div id="image-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col justify-between p-4 transition-opacity duration-300">
+    <div class="flex justify-between items-center text-white max-w-md w-full mx-auto pt-2">
+      <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+          <i id="zoom-icon" class="fas fa-search-plus"></i>
+        </button>
+        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container" onclick="handleModalBgClick(event)">
+      <img id="modal-image" src="" class="max-w-full max-h-[65vh] object-contain rounded-lg cursor-zoom-in" alt="Zoomable Memory">
+    </div>
+
+    <div class="max-w-md w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl text-white space-y-1 mb-2">
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
+      <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium max-h-28 overflow-y-auto pr-1"></p>
+    </div>
+  </div>
+
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsymevTTHmE3NpHr26ZIWuuDQQdvzDB84_aE14ispLQjAYK8b_ciLnlQIekBGFAi9SZQ/exec';
+
+    let selectedFileBase64 = null;
+    let selectedFileMime = null;
+    let selectedFileName = null;
+    let isZoomed = false;
+
+    let photos = JSON.parse(localStorage.getItem('kero_tota_photos')) || [];
+    let journal = JSON.parse(localStorage.getItem('kero_tota_journal')) || [];
+
+    function switchScreen(screen) {
+      document.getElementById('screen-photos').classList.toggle('hidden', screen !== 'photos');
+      document.getElementById('screen-journal').classList.toggle('hidden', screen !== 'journal');
+      
+      document.getElementById('screen-photos-btn').className = screen === 'photos' 
+        ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
+        : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
+
+      document.getElementById('screen-journal-btn').className = screen === 'journal' 
+        ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
+        : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        selectedFileName = file.name;
+        selectedFileMime = file.type;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          selectedFileBase64 = e.target.result.split(',')[1];
+          document.getElementById('image-preview').src = e.target.result;
+          document.getElementById('image-preview-container').classList.remove('hidden');
+          document.getElementById('select-photo-btn').classList.add('hidden');
+          
+          const uploadBtn = document.getElementById('upload-drive-btn');
+          uploadBtn.disabled = false;
+          uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
+          document.getElementById('upload-btn-text').innerText = "Upload to Drive & Save Permanently";
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearSelectedFile() {
+      selectedFileBase64 = null;
+      document.getElementById('photo-file-input').value = '';
+      document.getElementById('image-preview-container').classList.add('hidden');
+      document.getElementById('select-photo-btn').classList.remove('hidden');
+      
+      const uploadBtn = document.getElementById('upload-drive-btn');
+      uploadBtn.disabled = true;
+      uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
+      document.getElementById('upload-btn-text').innerText = "Select an image first";
+    }
+
+    async function uploadToDrive() {
+      const caption = document.getElementById('photo-caption').value.trim();
+      if (!selectedFileBase64) return;
+
+      const btnText = document.getElementById('upload-btn-text');
+      btnText.innerText = "Uploading to your Drive...";
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: selectedFileBase64,
+            mimeType: selectedFileMime,
+            filename: selectedFileName,
+            caption: caption || 'Our memory'
+          })
+        });
+
+        photos.unshift({
+          id: Date.now(),
+          imageData: document.getElementById('image-preview').src,
+          caption: caption || 'Our memory ❤',
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        });
+
+        document.getElementById('photo-caption').value = '';
+        clearSelectedFile();
+        saveState();
+        alert('Successfully saved and uploaded to your Google Drive folder! ❤');
+      } catch (err) {
+        alert('Error uploading. Please check your internet connection.');
+        btnText.innerText = "Upload to Drive & Save Permanently";
+      }
+    }
+
+    function addJournalEntry() {
+      const authorInput = document.getElementById('journal-author');
+      const textInput = document.getElementById('journal-text');
+
+      if (!textInput.value.trim()) {
+        alert('Please write something in the journal!');
+        return;
+      }
+
+      journal.unshift({
+        id: Date.now(),
+        author: authorInput.value.trim() || 'Kero / Tota',
+        text: textInput.value.trim(),
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      });
+
+      textInput.value = '';
+      saveState();
+    }
+
+    function saveState() {
+      localStorage.setItem('kero_tota_photos', JSON.stringify(photos));
+      localStorage.setItem('kero_tota_journal', JSON.stringify(journal));
+      render();
+    }
+
+    function openModal(imgSrc, captionText, dateText) {
+      const modal = document.getElementById('image-modal');
+      const modalImg = document.getElementById('modal-image');
+      document.getElementById('modal-caption').innerText = captionText;
+      document.getElementById('modal-date').innerText = dateText;
+      modalImg.src = imgSrc;
+      
+      isZoomed = false;
+      modalImg.style.transform = 'scale(1)';
+      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
+      
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('image-modal').classList.add('hidden');
+    }
+
+    function toggleZoom() {
+      const modalImg = document.getElementById('modal-image');
+      const zoomIcon = document.getElementById('zoom-icon');
+      isZoomed = !isZoomed;
+      if (isZoomed) {
+        modalImg.style.transform = 'scale(2.2)';
+        zoomIcon.className = 'fas fa-search-minus';
+      } else {
+        modalImg.style.transform = 'scale(1)';
+        zoomIcon.className = 'fas fa-search-plus';
+      }
+    }
+
+    function handleModalBgClick(e) {
+      if (e.target.id === 'modal-image-container') {
+        closeModal();
+      }
+    }
+
+    function render() {
+      const photosCarousel = document.getElementById('photos-carousel');
+      document.getElementById('photo-counter').innerText = `${photos.length} memories`;
+
+      if (photos.length === 0) {
+        photosCarousel.innerHTML = `
+          <div class="w-full text-center py-12 bg-white rounded-2xl border border-rose-100 p-6 flex-shrink-0">
+            <p class="text-3xl mb-2">📸</p>
+            <p class="text-xs font-semibold text-slate-500">No memories added yet</p>
+            <p class="text-[11px] text-slate-400 mt-1">Upload your first photo above!</p>
+          </div>
+        `;
+      } else {
+        photosCarousel.innerHTML = photos.map((p, index) => `
+          <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
+            <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModal('${p.imageData}', '${p.caption.replace(/'/g, "\\'")}', '${p.date}')">
+              <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
+                  <i class="fas fa-expand mr-1"></i> Tap to View & Zoom
+                </span>
+              </div>
+              <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
+                #${photos.length - index}
+              </span>
+            </div>
+            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+              <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3">${p.caption}</p>
+              <div class="flex justify-between items-center pt-1">
+                <span class="text-[10px] text-slate-400">${p.date}</span>
+                <button onclick="openModal('${p.imageData}', '${p.caption.replace(/'/g, "\\'")}','${p.date}')" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const journalFeed = document.getElementById('journal-feed');
+      journalFeed.innerHTML = journal.length === 0 ? `
+        <div class="text-center py-8 bg-white rounded-2xl border border-rose-100 p-4">
+          <p class="text-2xl mb-1">📖</p>
+          <p class="text-xs font-semibold text-slate-500">No journal notes yet</p>
+        </div>
+      ` : journal.map(j => `
+        <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-rose-600">${j.author}</span>
+            <span class="text-[10px] text-slate-400">${j.date}</span>
+          </div>
+          <p class="text-xs text-slate-700 leading-relaxed">${j.text}</p>
+        </div>
+      `).join('');
+    }
+
+    render();
+  </script>
+</body>
+</html>
