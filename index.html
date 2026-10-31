@@ -85,7 +85,7 @@
       align-items: center;
       justify-content: center;
       margin: 4px 0;
-      touch-action: none;         /* we handle pinch / pan / double-tap ourselves */
+      touch-action: none;         /* we handle pinch / pan / swipe / double-tap ourselves */
     }
     #modal-image {
       display: block;
@@ -94,7 +94,7 @@
       object-fit: contain;
       border-radius: 8px;
       transform-origin: center center;
-      will-change: transform;
+      will-change: transform, opacity;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
@@ -107,6 +107,30 @@
       max-height: 32dvh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+    }
+
+    /* Prev / next arrows (only shown on devices with a mouse; phones use swipe) */
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 3;
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .nav-arrow:hover { background: rgba(255,255,255,0.35); }
+    .nav-arrow.hidden-arrow { visibility: hidden; }
+    #nav-prev { left: 12px; }
+    #nav-next { right: 12px; }
+    @media (hover: hover) and (pointer: fine) {
+      .nav-arrow { display: flex; }
     }
 
     body.modal-open { overflow: hidden; }
@@ -216,7 +240,10 @@
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
   <div id="image-modal">
     <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 flex-shrink-0" style="position:relative; z-index:2;">
-      <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
+      <div class="flex items-center gap-2">
+        <span id="modal-counter" class="text-xs bg-white/20 px-2 py-1 rounded-full font-semibold"></span>
+        <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
+      </div>
       <div class="flex items-center gap-2">
         <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm transition">
           <i id="zoom-icon" class="fas fa-search-plus"></i>
@@ -226,6 +253,10 @@
         </button>
       </div>
     </div>
+
+    <!-- Prev / Next arrows (desktop only) -->
+    <button id="nav-prev" class="nav-arrow" onclick="navigatePhoto(-1)" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+    <button id="nav-next" class="nav-arrow" onclick="navigatePhoto(1)" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
 
     <!-- Center Zoom Area -->
     <div id="modal-image-container">
@@ -265,6 +296,7 @@
 
     let photos = [];
     let journal = [];
+    let currentPhotoId = null;       // id of the photo shown in the lightbox
 
     // Escape user text before putting it into HTML (emojis are fine, but < > & " break the markup)
     function escapeHtml(str) {
@@ -296,9 +328,10 @@
       });
     }
 
-    // ---------- Zoom state & gestures (pinch, pan, double-tap) ----------
+    // ---------- Zoom state & gestures (pinch, pan, double-tap, swipe) ----------
     let zScale = 1, zX = 0, zY = 0;
     const MIN_SCALE = 1, MAX_SCALE = 5, DOUBLE_TAP_SCALE = 2.5;
+    const SWIPE_THRESHOLD = 50; // px a finger must travel horizontally to change photo
 
     const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
@@ -340,17 +373,77 @@
 
     function resetZoom(animate) {
       zScale = 1; zX = 0; zY = 0;
+      const img = document.getElementById('modal-image');
+      img.style.opacity = '1';
       applyTransform(animate);
+    }
+
+    // ---------- Previous / next photo ----------
+    function currentPhotoIndex() {
+      return photos.findIndex(p => Number(p.id) === Number(currentPhotoId));
+    }
+
+    // direction: +1 = coming from the right (next), -1 = coming from the left (previous), 0 = no animation
+    function showPhoto(photo, direction) {
+      if (!photo) return;
+      currentPhotoId = photo.id;
+
+      const img = document.getElementById('modal-image');
+      document.getElementById('modal-caption').textContent = photo.caption || '';
+      document.getElementById('modal-date').textContent = photo.date || '';
+      img.src = photo.imageData;
+      document.getElementById('modal-caption-box').scrollTo(0, 0);
+
+      updateNavUi();
+
+      zScale = 1; zX = 0; zY = 0;
+      isZoomed = false;
+      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
+
+      if (direction) {
+        // start off to the side + transparent, then slide in
+        img.style.transition = 'none';
+        img.style.opacity = '0';
+        img.style.transform = `translate(${direction * 60}px, 0px) scale(1)`;
+        void img.offsetWidth; // force reflow so the starting state is applied
+        img.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease';
+        img.style.opacity = '1';
+        img.style.transform = 'translate(0px, 0px) scale(1)';
+      } else {
+        img.style.transition = 'none';
+        img.style.opacity = '1';
+        img.style.transform = 'translate(0px, 0px) scale(1)';
+      }
+    }
+
+    function updateNavUi() {
+      const idx = currentPhotoIndex();
+      const total = photos.length;
+      document.getElementById('modal-counter').textContent = idx >= 0 ? `${idx + 1} / ${total}` : '';
+      document.getElementById('nav-prev').classList.toggle('hidden-arrow', idx <= 0);
+      document.getElementById('nav-next').classList.toggle('hidden-arrow', idx < 0 || idx >= total - 1);
+    }
+
+    // step: +1 = next photo, -1 = previous photo. Returns true if the photo changed.
+    function navigatePhoto(step) {
+      const idx = currentPhotoIndex();
+      if (idx < 0) return false;
+      const target = idx + step;
+      if (target < 0 || target >= photos.length) return false;
+      showPhoto(photos[target], step);
+      return true;
     }
 
     function setupZoomGestures() {
       const cont = document.getElementById('modal-image-container');
       const modal = document.getElementById('image-modal');
+      const modalImg = document.getElementById('modal-image');
 
       let mode = null;                 // 'pan' | 'pinch' | null
       let startDist = 0, startScale = 1, startX = 0, startY = 0, startMid = { x: 0, y: 0 };
       let panTouch = { x: 0, y: 0 }, panStartX = 0, panStartY = 0, moved = false;
       let lastTap = 0, lastTapPos = { x: 0, y: 0 };
+      let gestureWasPinch = false;     // true if this gesture involved two fingers -> never a swipe
 
       const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
@@ -365,11 +458,13 @@
         if (e.touches.length === 2) {
           e.preventDefault();
           mode = 'pinch';
+          gestureWasPinch = true;
           startDist = dist(e.touches[0], e.touches[1]);
           startScale = zScale; startX = zX; startY = zY;
           startMid = mid(e.touches[0], e.touches[1]);
           moved = true; // a pinch is never a tap
         } else if (e.touches.length === 1) {
+          gestureWasPinch = false;
           beginPan(e.touches[0]);
           moved = false;
         }
@@ -395,10 +490,15 @@
           const dy = t.clientY - panTouch.y;
           if (Math.hypot(dx, dy) > 8) moved = true;
           if (zScale > 1) {
+            // zoomed in: move the image around
             zX = panStartX + dx;
             zY = panStartY + dy;
             clampPan();
             applyTransform(false);
+          } else if (!gestureWasPinch && moved) {
+            // not zoomed: image follows the finger horizontally (swipe preview)
+            modalImg.style.transition = 'none';
+            modalImg.style.transform = `translate(${dx * 0.6}px, 0px) scale(1)`;
           }
         }
       }, { passive: false });
@@ -406,6 +506,8 @@
       cont.addEventListener('touchend', (e) => {
         if (e.touches.length === 0) {
           const t = e.changedTouches[0];
+          let swiped = false;
+
           if (mode === 'pan' && !moved) {
             const now = Date.now();
             if (now - lastTap < 300 && Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y) < 40) {
@@ -418,8 +520,16 @@
               lastTap = now;
               lastTapPos = { x: t.clientX, y: t.clientY };
             }
+          } else if (mode === 'pan' && moved && zScale <= 1.01 && !gestureWasPinch) {
+            // SWIPE LEFT / RIGHT to change photo
+            const dx = t.clientX - panTouch.x;
+            const dy = t.clientY - panTouch.y;
+            if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+              swiped = navigatePhoto(dx < 0 ? 1 : -1); // swipe left -> next, swipe right -> previous
+            }
           }
-          if (zScale < 1.01) resetZoom(false);
+
+          if (!swiped && zScale < 1.01) resetZoom(true); // snap back if no photo change happened
           mode = null;
         } else if (e.touches.length === 1) {
           // one finger lifted after a pinch -> continue as pan with the remaining finger
@@ -428,7 +538,10 @@
         }
       }, { passive: false });
 
-      cont.addEventListener('touchcancel', () => { mode = null; });
+      cont.addEventListener('touchcancel', () => {
+        mode = null;
+        if (zScale < 1.01) resetZoom(true);
+      });
 
       // Stop iOS Safari from zooming the whole page while the lightbox is open
       ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev =>
@@ -453,13 +566,18 @@
       document.getElementById('modal-image').setAttribute('draggable', 'false');
 
       document.addEventListener('keydown', (e) => {
+        const open = document.getElementById('image-modal').classList.contains('open');
         if (e.key === 'Escape') closeModal();
+        else if (open && e.key === 'ArrowRight') navigatePhoto(1);
+        else if (open && e.key === 'ArrowLeft') navigatePhoto(-1);
       });
     });
 
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
+      // keep the counter / arrows correct if photos change while the lightbox is open
+      if (document.getElementById('image-modal').classList.contains('open')) updateNavUi();
     }, err => console.error('photos listener error', err));
 
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
@@ -583,13 +701,7 @@
       const photo = photos.find(p => Number(p.id) === Number(photoId));
       if (!photo) return;
 
-      const modalImg = document.getElementById('modal-image');
-      document.getElementById('modal-caption').textContent = photo.caption || '';
-      document.getElementById('modal-date').textContent = photo.date || '';
-      modalImg.src = photo.imageData;
-
-      resetZoom(false);
-      document.getElementById('modal-caption-box').scrollTo(0, 0);
+      showPhoto(photo, 0);
 
       document.getElementById('image-modal').classList.add('open');
       document.body.classList.add('modal-open');
@@ -598,6 +710,7 @@
     function closeModal() {
       document.getElementById('image-modal').classList.remove('open');
       document.body.classList.remove('modal-open');
+      currentPhotoId = null;
     }
 
     // Used by the zoom button in the top bar: zoom in at the center / zoom back out
