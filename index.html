@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
   <title>Kero & Tota ❤</title>
-  
+
   <!-- Apple PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kero & Tota">
   <link rel="apple-touch-icon" href="https://img.icons8.com/emoji/192/heart-suit.png">
-  
+
   <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -45,16 +45,77 @@
   <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    
+
+    /* Safe text wrapping for long text / emojis / long words */
+    .safe-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* Card caption clamp (explicit CSS so it works on every iOS Safari version) */
+    .caption-clamp {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+
+    /* ---------- Lightbox ---------- */
+    #image-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%;
+      height: 100vh;              /* fallback */
+      height: 100dvh;             /* iOS Safari: real visible height */
+      z-index: 50;
+      background: rgba(0,0,0,0.95);
+      display: none;
+      flex-direction: column;
+      padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) 12px;
+      box-sizing: border-box;
+    }
+    #image-modal.open { display: flex; }
+
     #modal-image-container {
-      touch-action: auto;
+      flex: 1 1 auto;
+      min-height: 0;              /* IMPORTANT: lets the flex child shrink instead of pushing content away */
       overflow: auto;
       -webkit-overflow-scrolling: touch;
+      display: flex;              /* m-auto on the image centers it without clipping when zoomed */
+      margin: 4px 0;
     }
     #modal-image {
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      transform-origin: center center;
+      margin: auto;
+      display: block;
+      flex-shrink: 0;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      cursor: zoom-in;
+      -webkit-user-select: none;
+      user-select: none;
     }
+    /* Zoomed: image becomes bigger than the container and can be scrolled/panned in every direction */
+    #modal-image.zoomed {
+      width: 250%;
+      max-width: none;
+      max-height: none;
+      cursor: zoom-out;
+    }
+
+    #modal-caption-box {
+      flex: 0 0 auto;
+      max-height: 32vh;
+      max-height: 32dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    body.modal-open { overflow: hidden; }
   </style>
 </head>
 <body class="bg-rose-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-rose-200">
@@ -66,7 +127,7 @@
         <span class="text-2xl">💖</span>
         <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
-      <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer" 
+      <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer"
          class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95">
         <i class="fab font-bold fa-google-drive text-sm text-emerald-600"></i>
         <span>Open Drive</span>
@@ -89,13 +150,13 @@
 
     <!-- SCREEN 1: MEMORIES / PHOTO GALLERY -->
     <section id="screen-photos" class="space-y-4">
-      
+
       <!-- Upload Box -->
       <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-4">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Upload New Memory</h3>
-        
+
         <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
-        
+
         <!-- Preview Box -->
         <div id="image-preview-container" class="hidden relative rounded-xl overflow-hidden border border-rose-200">
           <img id="image-preview" src="" class="w-full h-48 object-cover">
@@ -104,7 +165,7 @@
           </button>
         </div>
 
-        <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()" 
+        <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()"
                 class="w-full flex items-center justify-center gap-2 bg-rose-50 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-xl text-xs font-bold transition">
           <i class="fas fa-camera text-base"></i>
           <span>Choose Image from Phone / PC</span>
@@ -112,8 +173,10 @@
 
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Caption / Note under this image</label>
-          <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..." 
-                    class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
+          <!-- font-size 16px prevents iOS from auto-zooming the page when focusing the field -->
+          <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..."
+                    style="font-size:16px"
+                    class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
         </div>
 
         <button id="upload-drive-btn" onclick="uploadMemory()" disabled class="w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed">
@@ -138,10 +201,12 @@
     <section id="screen-journal" class="space-y-4 hidden">
       <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Journal Entry</h3>
-        <input type="text" id="journal-author" placeholder="Your Name (Kero or Tota)" 
-               class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50">
-        <textarea id="journal-text" rows="3" placeholder="Write thoughts or notes to each other..." 
-                  class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
+        <input type="text" id="journal-author" placeholder="Your Name (Kero or Tota)"
+               style="font-size:16px"
+               class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50">
+        <textarea id="journal-text" rows="3" placeholder="Write thoughts or notes to each other..."
+                  style="font-size:16px"
+                  class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
         <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition">
           Post Journal Note
         </button>
@@ -155,28 +220,28 @@
   </main>
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
-  <div id="image-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col justify-between p-3 sm:p-5 transition-opacity duration-300">
-    <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 flex-shrink-0 z-10">
+  <div id="image-modal">
+    <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 flex-shrink-0" style="position:relative; z-index:2;">
       <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       <div class="flex items-center gap-2">
-        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm transition">
           <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
-        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
         </button>
       </div>
     </div>
 
     <!-- Center Zoom Area -->
-    <div class="flex-1 flex items-center justify-center overflow-auto my-1 py-1" id="modal-image-container">
-      <img id="modal-image" src="" class="max-w-full max-h-[45vh] object-contain rounded-lg cursor-pointer block mx-auto" alt="Zoomable Memory">
+    <div id="modal-image-container">
+      <img id="modal-image" src="" alt="Zoomable Memory">
     </div>
 
-    <!-- Flexible Scrollable Caption Box -->
-    <div class="max-w-lg w-full mx-auto bg-white/15 backdrop-blur-md border border-white/20 p-3 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto flex-shrink-0 z-10">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-black/40 px-2 py-0.5 rounded backdrop-blur-sm">Memory Note</p>
-      <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium whitespace-pre-wrap break-words px-1"></p>
+    <!-- Scrollable Caption Box -->
+    <div id="modal-caption-box" class="max-w-lg w-full mx-auto bg-white/15 backdrop-blur-md border border-white/20 p-3 rounded-2xl text-white space-y-1">
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
+      <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1"></p>
     </div>
   </div>
 
@@ -194,76 +259,112 @@
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsymevTTHmE3NpHr26ZIWuuDQQdvzDB84_aE14ispLQjAYK8b_ciLnlQIekBGFAi9SZQ/exec';
 
-    let selectedFileBase64 = null;
+    // Max size of the copy stored in Firestore (documents are limited to 1 MiB).
+    const MAX_DIMENSION = 1280;
+    const JPEG_QUALITY = 0.8;
+
+    let selectedFileBase64 = null;   // original file, sent to Drive
     let selectedFileMime = null;
     let selectedFileName = null;
+    let selectedCompressedDataUrl = null; // small copy, stored in Firestore
     let isZoomed = false;
 
     let photos = [];
     let journal = [];
 
-    // Permanent global handler for modal image zoom
+    // Escape user text before putting it into HTML (emojis are fine, but < > & " break the markup)
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Shrink the image so the Firestore document stays well under the 1 MiB limit
+    function compressImage(dataUrl) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const modalImg = document.getElementById('modal-image');
-      if (modalImg) {
-        modalImg.addEventListener('click', toggleZoom);
-        modalImg.addEventListener('touchend', (e) => {
-          e.preventDefault();
-          toggleZoom();
-        });
-      }
+      modalImg.addEventListener('click', toggleZoom);
+
+      // Tap on the dark area (not on image / caption / buttons) closes nothing by accident; Escape closes on desktop
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+      });
     });
 
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
-    });
+    }, err => console.error('photos listener error', err));
 
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
       journal = snapshot.docs.map(doc => doc.data());
       renderJournal();
-    });
+    }, err => console.error('journal listener error', err));
 
     function switchScreen(screen) {
       document.getElementById('screen-photos').classList.toggle('hidden', screen !== 'photos');
       document.getElementById('screen-journal').classList.toggle('hidden', screen !== 'journal');
-      
-      document.getElementById('screen-photos-btn').className = screen === 'photos' 
+
+      document.getElementById('screen-photos-btn').className = screen === 'photos'
         ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
         : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
 
-      document.getElementById('screen-journal-btn').className = screen === 'journal' 
+      document.getElementById('screen-journal-btn').className = screen === 'journal'
         ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
         : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
     }
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
-      if (file) {
-        selectedFileName = file.name;
-        selectedFileMime = file.type;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          selectedFileBase64 = e.target.result.split(',')[1];
-          document.getElementById('image-preview').src = e.target.result;
-          document.getElementById('image-preview-container').classList.remove('hidden');
-          document.getElementById('select-photo-btn').classList.add('hidden');
-          
-          const uploadBtn = document.getElementById('upload-drive-btn');
-          uploadBtn.disabled = false;
-          uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
-          document.getElementById('upload-btn-text').innerText = "Upload to Drive & Sync Everywhere";
-        };
-        reader.readAsDataURL(file);
-      }
+      if (!file) return;
+
+      selectedFileName = file.name;
+      selectedFileMime = file.type;
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        selectedFileBase64 = e.target.result.split(',')[1];
+        selectedCompressedDataUrl = await compressImage(e.target.result);
+
+        document.getElementById('image-preview').src = selectedCompressedDataUrl;
+        document.getElementById('image-preview-container').classList.remove('hidden');
+        document.getElementById('select-photo-btn').classList.add('hidden');
+
+        const uploadBtn = document.getElementById('upload-drive-btn');
+        uploadBtn.disabled = false;
+        uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
+        document.getElementById('upload-btn-text').innerText = "Upload to Drive & Sync Everywhere";
+      };
+      reader.readAsDataURL(file);
     }
 
     function clearSelectedFile() {
       selectedFileBase64 = null;
+      selectedCompressedDataUrl = null;
       document.getElementById('photo-file-input').value = '';
       document.getElementById('image-preview-container').classList.add('hidden');
       document.getElementById('select-photo-btn').classList.remove('hidden');
-      
+
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = true;
       uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
@@ -272,7 +373,7 @@
 
     async function uploadMemory() {
       const caption = document.getElementById('photo-caption').value.trim();
-      if (!selectedFileBase64) return;
+      if (!selectedFileBase64 || !selectedCompressedDataUrl) return;
 
       const btnText = document.getElementById('upload-btn-text');
       btnText.innerText = "Syncing to Cloud & Drive...";
@@ -292,7 +393,7 @@
 
         const newPhoto = {
           id: Date.now(),
-          imageData: document.getElementById('image-preview').src,
+          imageData: selectedCompressedDataUrl,
           caption: caption || 'Our memory ❤',
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         };
@@ -303,6 +404,7 @@
         clearSelectedFile();
         alert('Successfully uploaded and synced across all devices! ❤');
       } catch (err) {
+        console.error(err);
         alert('Error uploading. Please check your internet connection.');
         btnText.innerText = "Upload to Drive & Sync Everywhere";
       }
@@ -332,38 +434,48 @@
       }
     }
 
-    // Safe ID lookup function that handles any long text, newlines, and emojis perfectly
     function openModalById(photoId) {
-      const photo = photos.find(p => p.id === photoId);
+      const photo = photos.find(p => Number(p.id) === Number(photoId));
       if (!photo) return;
 
-      const modal = document.getElementById('image-modal');
       const modalImg = document.getElementById('modal-image');
-      document.getElementById('modal-caption').innerText = photo.caption || '';
-      document.getElementById('modal-date').innerText = photo.date || '';
+      document.getElementById('modal-caption').textContent = photo.caption || '';
+      document.getElementById('modal-date').textContent = photo.date || '';
       modalImg.src = photo.imageData;
-      
+
       isZoomed = false;
-      modalImg.style.transform = 'scale(1)';
+      modalImg.classList.remove('zoomed');
       document.getElementById('zoom-icon').className = 'fas fa-search-plus';
-      
-      modal.classList.remove('hidden');
+
+      // reset scroll positions
+      document.getElementById('modal-image-container').scrollTo(0, 0);
+      document.getElementById('modal-caption-box').scrollTo(0, 0);
+
+      document.getElementById('image-modal').classList.add('open');
+      document.body.classList.add('modal-open');
     }
 
     function closeModal() {
-      document.getElementById('image-modal').classList.add('hidden');
+      document.getElementById('image-modal').classList.remove('open');
+      document.body.classList.remove('modal-open');
     }
 
     function toggleZoom() {
       const modalImg = document.getElementById('modal-image');
       const zoomIcon = document.getElementById('zoom-icon');
+      const container = document.getElementById('modal-image-container');
       isZoomed = !isZoomed;
+      modalImg.classList.toggle('zoomed', isZoomed);
+      zoomIcon.className = isZoomed ? 'fas fa-search-minus' : 'fas fa-search-plus';
+
       if (isZoomed) {
-        modalImg.style.transform = 'scale(2.5)';
-        zoomIcon.className = 'fas fa-search-minus';
+        // start centered so you can pan in every direction
+        requestAnimationFrame(() => {
+          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+          container.scrollTop = (container.scrollHeight - container.clientHeight) / 2;
+        });
       } else {
-        modalImg.style.transform = 'scale(1)';
-        zoomIcon.className = 'fas fa-search-plus';
+        container.scrollTo(0, 0);
       }
     }
 
@@ -383,22 +495,22 @@
         photosCarousel.innerHTML = photos.map((p, index) => {
           return `
             <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
-              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModalById(${p.id})">
+              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group flex-shrink-0" onclick="openModalById(${Number(p.id)})">
                 <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-                <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
                   <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
                     <i class="fas fa-expand mr-1"></i> Tap to View & Zoom
                   </span>
                 </div>
-                <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
+                <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
                   #${photos.length - index}
                 </span>
               </div>
-              <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
-                <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3 whitespace-pre-wrap">${p.caption}</p>
+              <div class="p-4 space-y-2" style="min-width:0">
+                <p class="text-xs text-slate-700 font-medium leading-relaxed safe-text caption-clamp">${escapeHtml(p.caption)}</p>
                 <div class="flex justify-between items-center pt-1">
-                  <span class="text-[10px] text-slate-400">${p.date}</span>
-                  <button onclick="openModalById(${p.id})" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
+                  <span class="text-[10px] text-slate-400">${escapeHtml(p.date)}</span>
+                  <button onclick="openModalById(${Number(p.id)})" class="text-[11px] text-rose-600 font-bold hover:underline py-1 px-1">Read Full Note</button>
                 </div>
               </div>
             </div>
@@ -417,10 +529,10 @@
       ` : journal.map(j => `
         <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm space-y-1">
           <div class="flex justify-between items-center">
-            <span class="text-xs font-bold text-rose-600">${j.author}</span>
-            <span class="text-[10px] text-slate-400">${j.date}</span>
+            <span class="text-xs font-bold text-rose-600">${escapeHtml(j.author)}</span>
+            <span class="text-[10px] text-slate-400">${escapeHtml(j.date)}</span>
           </div>
-          <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">${j.text}</p>
+          <p class="text-xs text-slate-700 leading-relaxed safe-text">${escapeHtml(j.text)}</p>
         </div>
       `).join('');
     }
