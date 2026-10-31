@@ -41,9 +41,16 @@
   <style>
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Professional Pinch-to-Zoom & Pan Container Styling */
+    #modal-image-container {
+      touch-action: pinch-zoom pan-x pan-y;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     #modal-image {
       transition: transform 0.2s ease;
-      touch-action: manipulation;
+      transform-origin: center center;
     }
   </style>
 </head>
@@ -58,7 +65,7 @@
       </div>
       <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer" 
          class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95">
-        <i class="fab fa-google-drive text-sm text-emerald-600"></i>
+        <i class="fab font-bold fa-google-drive text-sm text-emerald-600"></i>
         <span>Open Drive</span>
       </a>
     </div>
@@ -144,11 +151,12 @@
 
   </main>
 
-  <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
-  <div id="image-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col justify-between p-4 transition-opacity duration-300">
-    <div class="flex justify-between items-center text-white max-w-md w-full mx-auto pt-2">
+  <!-- PROFESSIONAL IMAGE ZOOM / LIGHTBOX MODAL -->
+  <div id="image-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-300">
+    <!-- Top Bar -->
+    <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1">
       <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
           <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
@@ -158,13 +166,15 @@
       </div>
     </div>
 
+    <!-- Center Scrollable & Zoomable Image Area -->
     <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container" onclick="handleModalBgClick(event)">
-      <img id="modal-image" src="" class="max-w-full max-h-[65vh] object-contain rounded-lg cursor-zoom-in" alt="Zoomable Memory">
+      <img id="modal-image" src="" class="max-w-full max-h-[50vh] sm:max-h-[60vh] object-contain rounded-lg cursor-zoom-in select-none" alt="Zoomable Memory">
     </div>
 
-    <div class="max-w-md w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl text-white space-y-1 mb-2">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
-      <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium max-h-28 overflow-y-auto pr-1"></p>
+    <!-- Bottom Description Box (Scrollable for long captions) -->
+    <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto">
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note</p>
+      <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium"></p>
     </div>
   </div>
 
@@ -311,7 +321,7 @@
       const zoomIcon = document.getElementById('zoom-icon');
       isZoomed = !isZoomed;
       if (isZoomed) {
-        modalImg.style.transform = 'scale(2.2)';
+        modalImg.style.transform = 'scale(2.5)';
         zoomIcon.className = 'fas fa-search-minus';
       } else {
         modalImg.style.transform = 'scale(1)';
@@ -338,28 +348,31 @@
           </div>
         `;
       } else {
-        photosCarousel.innerHTML = photos.map((p, index) => `
-          <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
-            <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModal('${p.imageData}', '${p.caption.replace(/'/g, "\\'")}', '${p.date}')">
-              <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-              <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
-                  <i class="fas fa-expand mr-1"></i> Tap to View & Zoom
+        photosCarousel.innerHTML = photos.map((p, index) => {
+          const safeCaption = (p.caption || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          return `
+            <div class="snap-center flex-shrink-0 w-80 bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
+              <div class="relative w-full h-80 bg-slate-100 cursor-pointer group" onclick="openModal('${p.imageData}', '${safeCaption}', '${p.date}')">
+                <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                  <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
+                    <i class="fas fa-expand mr-1"></i> Tap to View & Zoom
+                  </span>
+                </div>
+                <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
+                  #${photos.length - index}
                 </span>
               </div>
-              <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
-                #${photos.length - index}
-              </span>
-            </div>
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
-              <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3">${p.caption}</p>
-              <div class="flex justify-between items-center pt-1">
-                <span class="text-[10px] text-slate-400">${p.date}</span>
-                <button onclick="openModal('${p.imageData}', '${p.caption.replace(/'/g, "\\'")}','${p.date}')" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
+              <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+                <p class="text-xs text-slate-700 font-medium leading-relaxed line-clamp-3">${p.caption}</p>
+                <div class="flex justify-between items-center pt-1">
+                  <span class="text-[10px] text-slate-400">${p.date}</span>
+                  <button onclick="openModal('${p.imageData}', '${safeCaption}','${p.date}')" class="text-[11px] text-rose-600 font-bold hover:underline">Read Full Note</button>
+                </div>
               </div>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
       const journalFeed = document.getElementById('journal-feed');
