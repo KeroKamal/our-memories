@@ -174,7 +174,7 @@
     </div>
 
     <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto z-10">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note (Double-tap image to zoom)</p>
+      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note (Tap image to zoom in/out)</p>
       <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium"></p>
     </div>
   </div>
@@ -197,10 +197,21 @@
     let selectedFileMime = null;
     let selectedFileName = null;
     let isZoomed = false;
-    let lastTapTime = 0;
 
     let photos = [];
     let journal = [];
+
+    // Permanently bind click and touch handlers to the modal image once on load
+    document.addEventListener('DOMContentLoaded', () => {
+      const modalImg = document.getElementById('modal-image');
+      if (modalImg) {
+        modalImg.addEventListener('click', toggleZoom);
+        modalImg.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          toggleZoom();
+        });
+      }
+    });
 
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
@@ -331,17 +342,6 @@
       modalImg.style.transform = 'scale(1)';
       document.getElementById('zoom-icon').className = 'fas fa-search-plus';
       
-      // Always attach touch double-tap listener freshly on open
-      modalImg.ontouchend = function(e) {
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - lastTapTime;
-        if (tapLength < 300 && tapLength > 0) {
-          e.preventDefault();
-          toggleZoom();
-        }
-        lastTapTime = currentTime;
-      };
-
       modal.classList.remove('hidden');
     }
 
@@ -420,8 +420,6 @@
         </div>
       `).join('');
     }
-
-    render();
   </script>
 </body>
 </html>
