@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
   <title>Kero & Tota ❤</title>
   
   <!-- Apple PWA Meta Tags -->
@@ -47,13 +47,14 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     #modal-image-container {
-      touch-action: pinch-zoom pan-x pan-y;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
+      touch-action: none;
+      overflow: hidden;
+      position: relative;
     }
     #modal-image {
-      transition: transform 0.2s ease;
-      transform-origin: center center;
+      transform-origin: 0 0;
+      transition: transform 0.05s ease-out;
+      will-change: transform;
     }
   </style>
 </head>
@@ -156,11 +157,11 @@
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
   <div id="image-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col justify-between p-3 sm:p-6 transition-opacity duration-300">
-    <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1">
+    <div class="flex justify-between items-center text-white max-w-lg w-full mx-auto pt-1 z-10">
       <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       <div class="flex items-center gap-2">
-        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
-          <i id="zoom-icon" class="fas fa-search-plus"></i>
+        <button onclick="resetZoom()" class="bg-white/20 hover:bg-white/30 text-white px-3 h-9 rounded-full flex items-center justify-center text-xs transition">
+          Reset View
         </button>
         <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-9 h-9 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
@@ -168,18 +169,18 @@
       </div>
     </div>
 
-    <div class="flex-1 flex items-center justify-center overflow-auto my-2" id="modal-image-container" onclick="handleModalBgClick(event)">
-      <img id="modal-image" src="" class="max-w-full max-h-[50vh] sm:max-h-[60vh] object-contain rounded-lg cursor-zoom-in select-none" alt="Zoomable Memory">
+    <!-- Center Pinch-to-Zoom Image Area -->
+    <div class="flex-1 flex items-center justify-center overflow-hidden my-2 relative" id="modal-image-container">
+      <img id="modal-image" src="" class="max-w-full max-h-[55vh] object-contain rounded-lg select-none" alt="Zoomable Memory">
     </div>
 
-    <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto">
+    <div class="max-w-lg w-full mx-auto bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl text-white space-y-1 max-h-36 overflow-y-auto z-10">
       <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold sticky top-0 bg-transparent">Memory Note</p>
       <p id="modal-caption" class="text-xs sm:text-sm leading-relaxed font-medium"></p>
     </div>
   </div>
 
   <script>
-    // Firebase Initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBkZws6uuVSvWnqV0WgvliL1DC5HwKgk4E",
       authDomain: "keroandtota-f0393.firebaseapp.com",
@@ -196,12 +197,18 @@
     let selectedFileBase64 = null;
     let selectedFileMime = null;
     let selectedFileName = null;
-    let isZoomed = false;
 
     let photos = [];
     let journal = [];
 
-    // Real-time listeners from Firebase Firestore (Syncs all devices instantly)
+    // Zoom & Pan state variables
+    let scale = 1;
+    let pointX = 0;
+    let pointY = 0;
+    let startX = 0;
+    let startY = 0;
+    let initialDistance = null;
+
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
@@ -266,7 +273,6 @@
       btnText.innerText = "Syncing to Cloud & Drive...";
 
       try {
-        // 1. Send to Google Drive in the background
         await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
@@ -279,7 +285,6 @@
           })
         });
 
-        // 2. Save to Firebase Firestore so it instantly appears on all devices (PC & phones)
         const newPhoto = {
           id: Date.now(),
           imageData: document.getElementById('image-preview').src,
@@ -329,10 +334,7 @@
       document.getElementById('modal-date').innerText = dateText;
       modalImg.src = imgSrc;
       
-      isZoomed = false;
-      modalImg.style.transform = 'scale(1)';
-      document.getElementById('zoom-icon').className = 'fas fa-search-plus';
-      
+      resetZoom();
       modal.classList.remove('hidden');
     }
 
@@ -340,24 +342,63 @@
       document.getElementById('image-modal').classList.add('hidden');
     }
 
-    function toggleZoom() {
-      const modalImg = document.getElementById('modal-image');
-      const zoomIcon = document.getElementById('zoom-icon');
-      isZoomed = !isZoomed;
-      if (isZoomed) {
-        modalImg.style.transform = 'scale(2.5)';
-        zoomIcon.className = 'fas fa-search-minus';
-      } else {
-        modalImg.style.transform = 'scale(1)';
-        zoomIcon.className = 'fas fa-search-plus';
-      }
+    function resetZoom() {
+      scale = 1;
+      pointX = 0;
+      pointY = 0;
+      updateTransform();
     }
 
-    function handleModalBgClick(e) {
-      if (e.target.id === 'modal-image-container') {
-        closeModal();
-      }
+    function updateTransform() {
+      const modalImg = document.getElementById('modal-image');
+      modalImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
     }
+
+    // Touch handlers for mobile pinch-to-zoom & dragging
+    const container = document.getElementById('modal-image-container');
+    const modalImg = document.getElementById('modal-image');
+
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      } else if (e.touches.length === 1 && scale > 1) {
+        startX = e.touches[0].clientX - pointX;
+        startY = e.touches[0].clientY - pointY;
+      }
+    });
+
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initialDistance) {
+        e.preventDefault();
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const factor = currentDistance / initialDistance;
+        scale = Math.min(Math.max(1, scale * factor), 4);
+        initialDistance = currentDistance;
+        updateTransform();
+      } else if (e.touches.length === 1 && scale > 1) {
+        e.preventDefault();
+        pointX = e.touches[0].clientX - startX;
+        pointY = e.touches[0].clientY - startY;
+        updateTransform();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        initialDistance = null;
+      }
+      if (scale === 1) {
+        pointX = 0;
+        pointY = 0;
+        updateTransform();
+      }
+    });
 
     function renderPhotos() {
       const photosCarousel = document.getElementById('photos-carousel');
@@ -417,6 +458,8 @@
         </div>
       `).join('');
     }
+
+    render();
   </script>
 </body>
 </html>
