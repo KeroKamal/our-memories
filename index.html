@@ -24,6 +24,7 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 
   <script>
     tailwind.config = {
@@ -567,13 +568,16 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const storage = firebase.storage();
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsymevTTHmE3NpHr26ZIWuuDQQdvzDB84_aE14ispLQjAYK8b_ciLnlQIekBGFAi9SZQ/exec';
 
     // Max size of the copy stored in Firestore (documents are limited to 1 MiB).
-    const MAX_DIMENSION = 1280;
-    const JPEG_QUALITY = 0.8;
+    // The full-resolution original goes to Drive and Firebase Storage.
+    const MAX_DIMENSION = 1600;
+    const JPEG_QUALITY = 0.85;
 
+    let selectedFile = null;         // the original File, uploaded to Firebase Storage
     let selectedFileBase64 = null;   // original file, sent to Drive
     let selectedFileMime = null;
     let selectedFileName = null;
@@ -651,15 +655,22 @@
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          let { width, height } = img;
-          const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+          const MAX_CHARS = 880000; // stay safely under Firestore's 1 MiB document limit
+          let dim = MAX_DIMENSION, quality = JPEG_QUALITY, out = dataUrl;
+          for (let i = 0; i < 6; i++) {
+            const scale = Math.min(1, dim / Math.max(img.width, img.height));
+            const width = Math.round(img.width * scale);
+            const height = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            out = canvas.toDataURL('image/jpeg', quality);
+            if (out.length <= MAX_CHARS) break;
+            dim = Math.round(dim * 0.85);
+            quality = Math.max(0.6, quality - 0.05);
+          }
+          resolve(out);
         };
         img.onerror = () => resolve(dataUrl);
         img.src = dataUrl;
@@ -744,6 +755,38 @@
       return photos.findIndex(p => Number(p.id) === Number(currentPhotoId));
     }
 
+    // Full-resolution original of the photo currently open in the viewer (only one is kept in memory)
+    const originalCache = { id: null, file: null, objUrl: null, failed: false };
+
+    function loadOriginal(photo) {
+      if (originalCache.objUrl) { try { URL.revokeObjectURL(originalCache.objUrl); } catch (e) {} }
+      originalCache.id = photo.id;
+      originalCache.file = null;
+      originalCache.objUrl = null;
+      originalCache.failed = false;
+      if (!photo.originalUrl) return;
+
+      const id = photo.id;
+      const stillOpen = () => Number(currentPhotoId) === Number(id);
+
+      fetch(photo.originalUrl)
+        .then(r => { if (!r.ok) throw new Error('bad response'); return r.blob(); })
+        .then(blob => {
+          if (!stillOpen()) return;
+          originalCache.file = new File([blob], `kero-tota-${id}.jpg`, { type: blob.type || 'image/jpeg' });
+          originalCache.objUrl = URL.createObjectURL(blob);
+          document.getElementById('modal-image').src = originalCache.objUrl;
+        })
+        .catch(() => {
+          // could not fetch as a file: still show the original through a normal image load
+          if (!stillOpen()) return;
+          originalCache.failed = true;
+          const pre = new Image();
+          pre.onload = () => { if (stillOpen()) document.getElementById('modal-image').src = photo.originalUrl; };
+          pre.src = photo.originalUrl;
+        });
+    }
+
     // direction: +1 = coming from the right (next), -1 = coming from the left (previous), 0 = no animation
     function showPhoto(photo, direction) {
       if (!photo) return;
@@ -752,7 +795,8 @@
       const img = document.getElementById('modal-image');
       document.getElementById('modal-caption').textContent = photo.caption || '';
       document.getElementById('modal-date').textContent = formatPhotoDate(photo);
-      img.src = photo.imageData;
+      img.src = photo.imageData;   // small preview shows instantly
+      loadOriginal(photo);         // then swaps to the full-resolution original
       document.getElementById('modal-caption-box').scrollTo(0, 0);
 
       updateNavUi();
@@ -1040,6 +1084,7 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      selectedFile = file;
       selectedFileName = file.name;
       selectedFileMime = file.type;
       const reader = new FileReader();
@@ -1056,6 +1101,7 @@
     }
 
     function clearSelectedFile() {
+      selectedFile = null;
       selectedFileBase64 = null;
       selectedCompressedDataUrl = null;
       document.getElementById('photo-file-input').value = '';
@@ -1114,11 +1160,34 @@
           })
         });
         clearInterval(creep);
-        setProgress(80, 'Adding it to your album… 💕');
+
+        // keep the full-resolution original in Firebase Storage (Firestore only holds the small preview)
+        const newId = Date.now();
+        let originalUrl = null, originalPath = null, originalFailed = false;
+        try {
+          const safeName = (selectedFileName || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+          originalPath = `photos/${newId}_${safeName}`;
+          setProgress(66, 'Saving the original quality… ✨');
+          const task = storage.ref(originalPath).put(selectedFile, { contentType: selectedFileMime || 'image/jpeg' });
+          task.on('state_changed', (snap) => {
+            const frac = snap.totalBytes ? snap.bytesTransferred / snap.totalBytes : 0;
+            document.getElementById('upload-progress-bar').style.width = (66 + frac * 28) + '%';
+          });
+          await task;
+          originalUrl = await storage.ref(originalPath).getDownloadURL();
+        } catch (storageErr) {
+          console.error('original upload failed', storageErr);
+          originalUrl = null;
+          originalPath = null;
+          originalFailed = true;
+        }
+        setProgress(96, 'Adding it to your album… 💕');
 
         const newPhoto = {
-          id: Date.now(),
+          id: newId,
           imageData: selectedCompressedDataUrl,
+          originalUrl: originalUrl,
+          originalPath: originalPath,
           caption: caption || 'Our memory ❤',
           author: author,
           hearts: 0,
@@ -1130,7 +1199,7 @@
         setProgress(100, 'Saved! 🎉');
         document.getElementById('photo-caption').value = '';
         clearSelectedFile();
-        showToast('Memory added 💕');
+        showToast(originalFailed ? 'Added, but the original quality could not be saved' : 'Memory added 💕');
         setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
       } catch (err) {
         clearInterval(creep);
@@ -1346,8 +1415,17 @@
       const p = photos[currentPhotoIndex()];
       if (!p) return;
       try {
-        // convert synchronously so iOS still counts this as a tap
-        const file = dataUrlToFile(p.imageData, `kero-tota-${p.id}.jpg`);
+        let file = null;
+        if (p.originalUrl && originalCache.id === p.id) {
+          if (originalCache.file) {
+            file = originalCache.file;           // full-resolution original
+          } else if (!originalCache.failed) {
+            showToast('Loading the original… tap again in a moment ✨');
+            return;
+          }
+        }
+        // otherwise use the stored copy (converted synchronously so iOS still counts this as a tap)
+        if (!file) file = dataUrlToFile(p.imageData, `kero-tota-${p.id}.jpg`);
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file] });
         } else {
@@ -1434,8 +1512,7 @@
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <p class="text-4xl text-center mb-1">🥺</p>
-        <p class="font-cursive text-2xl text-rose-600 text-center">Are you sure?</p>
-        <p class="text-xs text-slate-500 text-center mt-1 mb-4 px-2">This memory will be removed from the app. The original photo stays safe in your Drive folder.</p>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
         <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmDelete()">Yes, delete it</button>
         <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
       `);
@@ -1443,8 +1520,12 @@
 
     async function confirmDelete() {
       const id = sheetPhotoId;
+      const p = photos.find(x => Number(x.id) === Number(id));
       try {
         await db.collection('photos').doc(String(id)).delete();
+        if (p && p.originalPath) {
+          try { await storage.ref(p.originalPath).delete(); } catch (e) { console.error('storage delete', e); }
+        }
         closeSheet();
         if (document.getElementById('image-modal').classList.contains('open')) closeModal();
         showToast('Memory removed from the app');
