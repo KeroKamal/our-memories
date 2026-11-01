@@ -71,7 +71,6 @@
 
     /* Photo cards scale with the screen: max 320px, but never wider than the phone allows */
     .photo-card { width: min(20rem, calc(100vw - 3rem - env(safe-area-inset-left) - env(safe-area-inset-right))); }
-    .photo-card-img { width: 100%; aspect-ratio: 1 / 1; }
 
     /* Safe text wrapping for long text / emojis / long words */
     .safe-text {
@@ -86,6 +85,59 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 3;
       overflow: hidden;
+    }
+    .caption-clamp-1 {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+    }
+
+    /* ---------- Polaroid cards ---------- */
+    .polaroid {
+      background: #fff;
+      padding: 12px 12px 12px;
+      border-radius: 6px;
+      box-shadow: 0 6px 18px rgba(244,63,94,.14), 0 1px 3px rgba(0,0,0,.08);
+      transform: rotate(var(--tilt, 0deg));
+    }
+    .polaroid-img {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #f1f5f9;
+      overflow: hidden;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .polaroid-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .carousel-pad { padding: 16px 10px 22px; }
+
+    .author-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;
+      white-space: nowrap;
+    }
+    .mini-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      min-width: 36px; height: 36px; padding: 0 10px; border-radius: 9999px;
+      background: #fff1f2; color: #e11d48; font-size: 13px; font-weight: 700; line-height: 1;
+      transition: transform .15s ease;
+    }
+    .mini-btn:active { transform: scale(1.2); }
+    .mini-btn.plain { background: transparent; color: #94a3b8; padding: 0; }
+
+    .view-btn {
+      padding: 7px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
+      color: #64748b; transition: all .15s ease;
+    }
+    .view-btn.active { background: #fff; color: #e11d48; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+    .dice-roll { animation: diceRoll .5s ease; }
+    @keyframes diceRoll {
+      from { transform: rotate(0deg) scale(1); }
+      50%  { transform: rotate(180deg) scale(1.25); }
+      to   { transform: rotate(360deg) scale(1); }
     }
 
     /* ---------- Lightbox ---------- */
@@ -130,10 +182,32 @@
 
     #modal-caption-box {
       flex: 0 0 auto;
-      max-height: 32vh;
-      max-height: min(32dvh, 260px);
+      max-height: 26vh;
+      max-height: min(26dvh, 220px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+    }
+
+    .viewer-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: 44px; min-width: 44px; padding: 0 16px; border-radius: 9999px;
+      background: rgba(255,255,255,.2); color: #fff; font-size: 14px; font-weight: 600;
+      transition: background .15s ease, transform .15s ease;
+    }
+    .viewer-btn:active { transform: scale(.94); background: rgba(255,255,255,.35); }
+
+    .heart-burst {
+      position: fixed; z-index: 5; font-size: 84px; line-height: 1; pointer-events: none;
+      transform: translate(-50%, -50%) scale(0); opacity: 0;
+      animation: heartBurst .85s ease forwards;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,.4));
+    }
+    @keyframes heartBurst {
+      0%   { transform: translate(-50%, -50%) scale(0);   opacity: 0; }
+      25%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+      45%  { transform: translate(-50%, -50%) scale(.95); opacity: 1; }
+      75%  { transform: translate(-50%, -60%) scale(1);   opacity: 1; }
+      100% { transform: translate(-50%, -90%) scale(1.1); opacity: 0; }
     }
 
     /* Prev / next arrows (only shown on devices with a mouse; phones use swipe) */
@@ -164,13 +238,42 @@
 
     /* Short screens (iPhone SE / mini): give the photo more room */
     @media (max-height: 700px) {
-      #modal-caption-box { max-height: 24dvh; }
+      #modal-caption-box { max-height: 18dvh; }
     }
     /* Landscape phones: very little height, keep the photo as big as possible */
     @media (orientation: landscape) and (max-height: 500px) {
-      #modal-caption-box { max-height: 28dvh; }
+      #modal-caption-box { max-height: 22dvh; }
       #modal-image-container { margin: 2px 0; }
     }
+
+    /* ---------- Bottom sheets (menu / edit / delete) + toast ---------- */
+    #sheet-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 90;
+      background: rgba(15,23,42,.45);
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    #sheet-overlay.open { display: flex; }
+    #sheet-panel {
+      width: 100%; max-width: 28rem; background: #fff;
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+      animation: sheetUp .25s ease;
+    }
+    @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .sheet-btn {
+      width: 100%; padding: 14px; border-radius: 16px; font-weight: 700; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .sheet-btn:active { transform: scale(.98); }
+
+    #toast {
+      position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 100;
+      transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease;
+      background: rgba(30,30,40,.92); color: #fff; padding: 10px 16px; border-radius: 9999px;
+      font-size: 13px; font-weight: 600; max-width: 90vw; text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ---------- Journal (cute chat-style notes) ---------- */
     .journal-hearts { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; pointer-events: none; z-index: 0; }
@@ -259,47 +362,79 @@
     <!-- SCREEN 1: MEMORIES / PHOTO GALLERY -->
     <section id="screen-photos" class="space-y-4">
 
-      <!-- Upload Box -->
-      <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-4">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Upload New Memory</h3>
+      <!-- Upload Card -->
+      <div class="rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4"
+           style="background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);">
+        <div class="text-center">
+          <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Add a memory 📸</h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Keep this moment forever</p>
+        </div>
 
         <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
 
-        <!-- Preview Box -->
-        <div id="image-preview-container" class="hidden relative rounded-xl overflow-hidden border border-rose-200">
-          <img id="image-preview" src="" class="w-full h-48 object-cover">
-          <button onclick="clearSelectedFile()" class="absolute top-2 right-2 bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs">
+        <!-- Preview Box (small polaroid) -->
+        <div id="image-preview-container" class="hidden relative polaroid mx-auto" style="--tilt:-2deg; width: min(200px, 60%);">
+          <div style="width:100%; aspect-ratio:1/1; overflow:hidden; border-radius:2px; background:#f1f5f9;">
+            <img id="image-preview" src="" style="width:100%; height:100%; object-fit:cover; display:block;">
+          </div>
+          <button onclick="clearSelectedFile()" aria-label="Remove photo" class="absolute -top-3 -right-3 bg-rose-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-xs shadow-md">
             <i class="fas fa-times"></i>
           </button>
         </div>
 
         <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()"
-                class="w-full flex items-center justify-center gap-2 bg-rose-50 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-xl text-xs font-bold transition">
+                class="w-full flex items-center justify-center gap-2 bg-white/70 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-2xl text-xs font-bold transition">
           <i class="fas fa-camera text-base"></i>
           <span>Choose Image</span>
         </button>
 
+        <div class="space-y-1.5">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Who's adding it?</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="up-who-kero" type="button" onclick="selectUploadAuthor('Kero')" class="who-btn"><span class="text-lg">🐻</span> Kero</button>
+            <button id="up-who-tota" type="button" onclick="selectUploadAuthor('Tota')" class="who-btn"><span class="text-lg">🦜</span> Tota</button>
+          </div>
+        </div>
+
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Notes</label>
           <!-- font-size 16px prevents iOS from auto-zooming the page when focusing the field -->
           <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..."
                     style="font-size:16px"
-                    class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
+                    class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80"></textarea>
         </div>
 
-        <button id="upload-drive-btn" onclick="uploadMemory()" disabled class="w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed">
+        <div id="upload-progress" class="hidden">
+          <div class="h-2 rounded-full bg-rose-100 overflow-hidden">
+            <div id="upload-progress-bar" class="h-full rounded-full" style="width:0%; background:linear-gradient(90deg,#fb7185,#a78bfa); transition:width .3s ease;"></div>
+          </div>
+          <p id="upload-progress-text" class="text-[11px] text-slate-500 text-center mt-1.5"></p>
+        </div>
+
+        <button id="upload-drive-btn" onclick="uploadMemory()" disabled class="w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed">
           <i class="fas fa-cloud-upload-alt"></i>
           <span id="upload-btn-text">Select an image first</span>
         </button>
       </div>
 
       <!-- Memories Timeline -->
-      <div class="space-y-2">
+      <div class="space-y-3">
         <div class="flex justify-between items-center px-1">
           <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Our Memories Timeline</h3>
-          <span id="photo-counter" class="text-[10px] text-rose-500 font-bold bg-rose-100 px-2 py-0.5 rounded-full">0 memories</span>
+          <span id="photo-counter" class="text-[10px] text-rose-500 font-bold bg-rose-100 px-2 py-0.5 rounded-full">0 memories 💕</span>
         </div>
-        <div id="photos-carousel" class="flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar pb-2">
+
+        <div class="flex items-center justify-between px-1">
+          <div class="flex bg-white/70 p-0.5 rounded-xl border border-rose-100">
+            <button id="view-carousel-btn" type="button" onclick="setPhotoView('carousel')" class="view-btn"><i class="fas fa-images mr-1"></i> Swipe</button>
+            <button id="view-grid-btn" type="button" onclick="setPhotoView('grid')" class="view-btn"><i class="fas fa-th-large mr-1"></i> Grid</button>
+          </div>
+          <button id="surprise-btn" type="button" onclick="surpriseMe()" class="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 text-[11px] font-bold px-3 py-2 rounded-full shadow-sm active:scale-95 transition">
+            <span id="surprise-dice" class="text-base leading-none">🎲</span> Surprise me
+          </button>
+        </div>
+
+        <div id="photos-container">
           <!-- Dynamically Populated -->
         </div>
       </div>
@@ -371,10 +506,10 @@
         <span id="modal-date" class="text-xs text-rose-300 font-medium"></span>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="toggleZoom()" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="toggleZoom()" aria-label="Zoom" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
           <i id="zoom-icon" class="fas fa-search-plus"></i>
         </button>
-        <button onclick="closeModal()" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
+        <button onclick="closeModal()" aria-label="Close" class="bg-white/20 hover:bg-white/30 text-white w-11 h-11 rounded-full flex items-center justify-center text-sm transition">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -389,12 +524,37 @@
       <img id="modal-image" src="" alt="Zoomable Memory">
     </div>
 
+    <!-- Actions: heart / save & share / more -->
+    <div class="flex items-center justify-center gap-3 max-w-lg w-full mx-auto flex-shrink-0 pb-2" style="position:relative; z-index:2;">
+      <button id="modal-heart-btn" type="button" class="viewer-btn" onclick="togglePhotoHeart(currentPhotoId)" aria-label="Heart this memory">
+        <span id="modal-heart-icon" class="text-lg leading-none">🤍</span>
+        <span id="modal-heart-count"></span>
+      </button>
+      <button type="button" class="viewer-btn" onclick="sharePhoto()" aria-label="Save or share">
+        <i class="fas fa-arrow-up-from-bracket"></i> Save / Share
+      </button>
+      <button type="button" class="viewer-btn" onclick="openPhotoMenu(currentPhotoId)" aria-label="More options">
+        <i class="fas fa-ellipsis"></i>
+      </button>
+    </div>
+
     <!-- Scrollable Caption Box -->
     <div id="modal-caption-box" class="max-w-lg w-full mx-auto bg-white/15 backdrop-blur-md border border-white/20 p-3 rounded-2xl text-white space-y-1">
-      <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
+        <span id="modal-author"></span>
+      </div>
       <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1"></p>
     </div>
   </div>
+
+  <!-- Bottom sheet (menu / edit / delete) -->
+  <div id="sheet-overlay" onclick="if(event.target===this) closeSheet()">
+    <div id="sheet-panel"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
 
   <script>
     const firebaseConfig = {
@@ -419,10 +579,29 @@
     let selectedFileName = null;
     let selectedCompressedDataUrl = null; // small copy, stored in Firestore
     let isZoomed = false;
+    let isUploading = false;
 
     let photos = [];
     let journal = [];
     let currentPhotoId = null;       // id of the photo shown in the lightbox
+    let sheetPhotoId = null;         // id of the photo the bottom sheet is about
+    let lastSurpriseId = null;
+
+    // ---------- Photo settings remembered on this phone ----------
+    const PHOTO_LIKED_KEY = 'photoLikedMemories';
+    const PHOTO_VIEW_KEY = 'photoView';
+    const TILTS = [-2.2, 1.6, -1.1, 2.1, -1.7, 1.2];
+
+    let photoLiked = new Set();      // ids of photos this phone has hearted
+    try {
+      const raw = localStorage.getItem(PHOTO_LIKED_KEY);
+      if (raw) photoLiked = new Set(JSON.parse(raw).map(String));
+    } catch (e) { photoLiked = new Set(); }
+
+    let photoView = 'carousel';      // 'carousel' | 'grid'
+    try {
+      if (localStorage.getItem(PHOTO_VIEW_KEY) === 'grid') photoView = 'grid';
+    } catch (e) {}
 
     // Escape user text before putting it into HTML (emojis are fine, but < > & " break the markup)
     function escapeHtml(str) {
@@ -432,6 +611,39 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    // Small message at the bottom of the screen
+    let toastTimer = null;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+    }
+
+    // "Today", "Yesterday" or "Oct 29, 2026"
+    function formatPhotoDate(p) {
+      const d = new Date(Number(p.id));
+      if (isNaN(d.getTime())) return p.date || '';
+      const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+      const diffDays = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000);
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function monthLabel(p) {
+      const d = new Date(Number(p.id));
+      if (isNaN(d.getTime())) return 'Earlier';
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function photoAuthorBadge(author) {
+      if (author !== 'Kero' && author !== 'Tota') return '';
+      const kero = author === 'Kero';
+      return `<span class="author-chip" style="background:${kero ? '#ffe4e6' : '#ede9fe'}; color:${kero ? '#e11d48' : '#7c3aed'}">${kero ? '🐻' : '🦜'} ${author}</span>`;
     }
 
     // Shrink the image so the Firestore document stays well under the 1 MiB limit
@@ -454,10 +666,11 @@
       });
     }
 
-    // ---------- Zoom state & gestures (pinch, pan, double-tap, swipe) ----------
+    // ---------- Zoom state & gestures (pinch, pan, double-tap = heart, swipe, swipe down = close) ----------
     let zScale = 1, zX = 0, zY = 0;
     const MIN_SCALE = 1, MAX_SCALE = 5, DOUBLE_TAP_SCALE = 2.5;
-    const SWIPE_THRESHOLD = 50; // px a finger must travel horizontally to change photo
+    const SWIPE_THRESHOLD = 50;      // px a finger must travel horizontally to change photo
+    const CLOSE_THRESHOLD = 110;     // px a finger must travel down to close the viewer
 
     const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
@@ -504,6 +717,28 @@
       applyTransform(animate);
     }
 
+    function resetModalBg() {
+      const modal = document.getElementById('image-modal');
+      modal.style.transition = 'background 0.2s ease';
+      modal.style.background = '';
+    }
+
+    // Big heart that pops up where you double-tapped
+    function showHeartBurst(x, y) {
+      const el = document.createElement('div');
+      el.className = 'heart-burst';
+      el.textContent = '❤️';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      document.getElementById('image-modal').appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+
+    function doubleTapHeart(x, y) {
+      showHeartBurst(x, y);
+      if (currentPhotoId != null) togglePhotoHeart(currentPhotoId, true); // double-tap only adds a heart
+    }
+
     // ---------- Previous / next photo ----------
     function currentPhotoIndex() {
       return photos.findIndex(p => Number(p.id) === Number(currentPhotoId));
@@ -516,11 +751,12 @@
 
       const img = document.getElementById('modal-image');
       document.getElementById('modal-caption').textContent = photo.caption || '';
-      document.getElementById('modal-date').textContent = photo.date || '';
+      document.getElementById('modal-date').textContent = formatPhotoDate(photo);
       img.src = photo.imageData;
       document.getElementById('modal-caption-box').scrollTo(0, 0);
 
       updateNavUi();
+      updateViewerActions();
 
       zScale = 1; zX = 0; zY = 0;
       isZoomed = false;
@@ -550,6 +786,26 @@
       document.getElementById('nav-next').classList.toggle('hidden-arrow', idx < 0 || idx >= total - 1);
     }
 
+    // heart button + author badge in the viewer
+    function updateViewerActions() {
+      const p = photos[currentPhotoIndex()];
+      if (!p) return;
+      const liked = photoLiked.has(String(p.id));
+      const h = Math.max(0, Number(p.hearts) || 0);
+      document.getElementById('modal-heart-icon').textContent = liked ? '❤️' : '🤍';
+      document.getElementById('modal-heart-count').textContent = h > 0 ? h : '';
+      document.getElementById('modal-author').innerHTML = photoAuthorBadge(p.author);
+    }
+
+    // when the photo changed on the server while the viewer is open (caption edit, hearts)
+    function refreshViewerInfo() {
+      const p = photos[currentPhotoIndex()];
+      if (!p) return;
+      document.getElementById('modal-caption').textContent = p.caption || '';
+      document.getElementById('modal-date').textContent = formatPhotoDate(p);
+      updateViewerActions();
+    }
+
     // step: +1 = next photo, -1 = previous photo. Returns true if the photo changed.
     function navigatePhoto(step) {
       const idx = currentPhotoIndex();
@@ -566,6 +822,7 @@
       const modalImg = document.getElementById('modal-image');
 
       let mode = null;                 // 'pan' | 'pinch' | null
+      let axis = null;                 // 'h' | 'v' | null (direction of a one-finger drag when not zoomed)
       let startDist = 0, startScale = 1, startX = 0, startY = 0, startMid = { x: 0, y: 0 };
       let panTouch = { x: 0, y: 0 }, panStartX = 0, panStartY = 0, moved = false;
       let lastTap = 0, lastTapPos = { x: 0, y: 0 };
@@ -576,6 +833,7 @@
 
       function beginPan(t) {
         mode = 'pan';
+        axis = null;
         panTouch = { x: t.clientX, y: t.clientY };
         panStartX = zX; panStartY = zY;
       }
@@ -615,16 +873,27 @@
           const dx = t.clientX - panTouch.x;
           const dy = t.clientY - panTouch.y;
           if (Math.hypot(dx, dy) > 8) moved = true;
-          if (zScale > 1) {
+          if (zScale > 1.01) {
             // zoomed in: move the image around
             zX = panStartX + dx;
             zY = panStartY + dy;
             clampPan();
             applyTransform(false);
           } else if (!gestureWasPinch && moved) {
-            // not zoomed: image follows the finger horizontally (swipe preview)
+            // not zoomed: decide once whether this is a sideways swipe or a swipe down
+            if (!axis) axis = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
             modalImg.style.transition = 'none';
-            modalImg.style.transform = `translate(${dx * 0.6}px, 0px) scale(1)`;
+            if (axis === 'v') {
+              // image follows the finger, background fades, image shrinks a little (like iPhone Photos)
+              const down = Math.max(0, dy);
+              const p = Math.min(1, down / 300);
+              modalImg.style.transform = `translate(${dx * 0.5}px, ${dy}px) scale(${1 - p * 0.25})`;
+              modal.style.transition = 'none';
+              modal.style.background = `rgba(0,0,0,${0.95 * (1 - p)})`;
+            } else {
+              // image follows the finger horizontally (swipe preview)
+              modalImg.style.transform = `translate(${dx * 0.6}px, 0px) scale(1)`;
+            }
           }
         }
       }, { passive: false });
@@ -633,30 +902,39 @@
         if (e.touches.length === 0) {
           const t = e.changedTouches[0];
           let swiped = false;
+          let closing = false;
 
           if (mode === 'pan' && !moved) {
             const now = Date.now();
             if (now - lastTap < 300 && Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y) < 40) {
-              // DOUBLE TAP
+              // DOUBLE TAP -> heart
               e.preventDefault();
               lastTap = 0;
-              if (zScale > 1.01) resetZoom(true);
-              else zoomAt(DOUBLE_TAP_SCALE, t.clientX, t.clientY, true);
+              doubleTapHeart(t.clientX, t.clientY);
             } else {
               lastTap = now;
               lastTapPos = { x: t.clientX, y: t.clientY };
             }
           } else if (mode === 'pan' && moved && zScale <= 1.01 && !gestureWasPinch) {
-            // SWIPE LEFT / RIGHT to change photo
             const dx = t.clientX - panTouch.x;
             const dy = t.clientY - panTouch.y;
-            if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
-              swiped = navigatePhoto(dx < 0 ? 1 : -1); // swipe left -> next, swipe right -> previous
+            if (axis === 'v') {
+              // SWIPE DOWN to close
+              if (dy > CLOSE_THRESHOLD) { closing = true; closeModal(); }
+            } else if (axis === 'h') {
+              // SWIPE LEFT / RIGHT to change photo
+              if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                swiped = navigatePhoto(dx < 0 ? 1 : -1); // swipe left -> next, swipe right -> previous
+              }
             }
           }
 
-          if (!swiped && zScale < 1.01) resetZoom(true); // snap back if no photo change happened
+          if (!closing) {
+            if (!swiped && zScale < 1.01) resetZoom(true); // snap back if no photo change happened
+            resetModalBg();
+          }
           mode = null;
+          axis = null;
         } else if (e.touches.length === 1) {
           // one finger lifted after a pinch -> continue as pan with the remaining finger
           beginPan(e.touches[0]);
@@ -666,7 +944,9 @@
 
       cont.addEventListener('touchcancel', () => {
         mode = null;
+        axis = null;
         if (zScale < 1.01) resetZoom(true);
+        resetModalBg();
       });
 
       // Stop iOS Safari from zooming the whole page while the lightbox is open
@@ -674,10 +954,9 @@
         modal.addEventListener(ev, (e) => e.preventDefault())
       );
 
-      // Desktop: double-click and mouse wheel
+      // Desktop: double-click = heart, mouse wheel = zoom
       cont.addEventListener('dblclick', (e) => {
-        if (zScale > 1.01) resetZoom(true);
-        else zoomAt(DOUBLE_TAP_SCALE, e.clientX, e.clientY, true);
+        doubleTapHeart(e.clientX, e.clientY);
       });
       cont.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -693,7 +972,7 @@
 
       document.addEventListener('keydown', (e) => {
         const open = document.getElementById('image-modal').classList.contains('open');
-        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Escape') { closeSheet(); closeModal(); }
         else if (open && e.key === 'ArrowRight') navigatePhoto(1);
         else if (open && e.key === 'ArrowLeft') navigatePhoto(-1);
       });
@@ -702,8 +981,15 @@
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
-      // keep the counter / arrows correct if photos change while the lightbox is open
-      if (document.getElementById('image-modal').classList.contains('open')) updateNavUi();
+      // keep the viewer correct if photos change while it is open
+      if (document.getElementById('image-modal').classList.contains('open')) {
+        if (currentPhotoIndex() < 0) {
+          closeModal(); // this memory was deleted
+        } else {
+          updateNavUi();
+          refreshViewerInfo();
+        }
+      }
     }, err => console.error('photos listener error', err));
 
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
@@ -722,6 +1008,32 @@
       document.getElementById('screen-journal-btn').className = screen === 'journal'
         ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
         : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
+
+      if (screen === 'photos') updateUploadAuthorButtons(); // keep "who's adding it" in sync with the journal
+    }
+
+    // ---------- Upload ----------
+    function updateUploadAuthorButtons() {
+      let a = null;
+      try { a = (typeof journalAuthor !== 'undefined') ? journalAuthor : null; } catch (e) { a = null; }
+      if (!a) a = storageGet('journalAuthor');
+      document.getElementById('up-who-kero').classList.toggle('sel-kero', a === 'Kero');
+      document.getElementById('up-who-tota').classList.toggle('sel-tota', a === 'Tota');
+    }
+
+    // same remembered name the journal uses
+    function selectUploadAuthor(name) {
+      journalAuthor = name;
+      storageSet('journalAuthor', name);
+      updateAuthorButtons();           // keeps the journal buttons in sync
+      updateUploadAuthorButtons();
+    }
+
+    function setUploadButtonReady() {
+      const uploadBtn = document.getElementById('upload-drive-btn');
+      uploadBtn.disabled = false;
+      uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
+      document.getElementById('upload-btn-text').innerText = "Upload";
     }
 
     function handleFileSelect(event) {
@@ -738,11 +1050,7 @@
         document.getElementById('image-preview').src = selectedCompressedDataUrl;
         document.getElementById('image-preview-container').classList.remove('hidden');
         document.getElementById('select-photo-btn').classList.add('hidden');
-
-        const uploadBtn = document.getElementById('upload-drive-btn');
-        uploadBtn.disabled = false;
-        uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
-        document.getElementById('upload-btn-text').innerText = "Upload";
+        setUploadButtonReady();
       };
       reader.readAsDataURL(file);
     }
@@ -756,16 +1064,42 @@
 
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = true;
-      uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-xl text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
+      uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
       document.getElementById('upload-btn-text').innerText = "Select an image first";
+    }
+
+    function setProgress(pct, text) {
+      document.getElementById('upload-progress').classList.remove('hidden');
+      document.getElementById('upload-progress-bar').style.width = pct + '%';
+      document.getElementById('upload-progress-text').textContent = text || '';
     }
 
     async function uploadMemory() {
       const caption = document.getElementById('photo-caption').value.trim();
-      if (!selectedFileBase64 || !selectedCompressedDataUrl) return;
+      if (!selectedFileBase64 || !selectedCompressedDataUrl || isUploading) return;
 
+      let author = null;
+      try { author = (typeof journalAuthor !== 'undefined') ? journalAuthor : null; } catch (e) { author = null; }
+      if (!author) author = storageGet('journalAuthor');
+      if (author !== 'Kero' && author !== 'Tota') {
+        showToast('Please choose Kero or Tota first 💕');
+        return;
+      }
+
+      isUploading = true;
+      const uploadBtn = document.getElementById('upload-drive-btn');
       const btnText = document.getElementById('upload-btn-text');
+      uploadBtn.disabled = true;
+      uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
       btnText.innerText = "Uploading...";
+
+      // slowly creeping bar while the photo travels to Drive
+      let pct = 6;
+      setProgress(pct, 'Sending your photo… 📤');
+      const creep = setInterval(() => {
+        pct += (62 - pct) * 0.08;
+        document.getElementById('upload-progress-bar').style.width = pct + '%';
+      }, 300);
 
       try {
         await fetch(APPS_SCRIPT_URL, {
@@ -779,24 +1113,33 @@
             caption: caption || 'Our memory'
           })
         });
+        clearInterval(creep);
+        setProgress(80, 'Adding it to your album… 💕');
 
         const newPhoto = {
           id: Date.now(),
           imageData: selectedCompressedDataUrl,
           caption: caption || 'Our memory ❤',
+          author: author,
+          hearts: 0,
           date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         };
 
         await db.collection('photos').doc(newPhoto.id.toString()).set(newPhoto);
 
+        setProgress(100, 'Saved! 🎉');
         document.getElementById('photo-caption').value = '';
         clearSelectedFile();
-        alert('Successfully uploaded ❤');
+        showToast('Memory added 💕');
+        setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
       } catch (err) {
+        clearInterval(creep);
         console.error(err);
-        alert('Error uploading. Please check your internet connection.');
-        btnText.innerText = "Upload";
+        document.getElementById('upload-progress').classList.add('hidden');
+        showToast('Error uploading. Please check your internet connection.');
+        setUploadButtonReady();
       }
+      isUploading = false;
     }
 
     // ---------- Journal: author, mood, hearts ----------
@@ -922,6 +1265,7 @@
       }
     }
 
+    // ---------- Viewer open / close ----------
     function openModalById(photoId) {
       const photo = photos.find(p => Number(p.id) === Number(photoId));
       if (!photo) return;
@@ -933,7 +1277,10 @@
     }
 
     function closeModal() {
-      document.getElementById('image-modal').classList.remove('open');
+      const modal = document.getElementById('image-modal');
+      modal.classList.remove('open');
+      modal.style.transition = 'none';
+      modal.style.background = '';
       document.body.classList.remove('modal-open');
       currentPhotoId = null;
     }
@@ -948,43 +1295,272 @@
       }
     }
 
-    function renderPhotos() {
-      const photosCarousel = document.getElementById('photos-carousel');
-      document.getElementById('photo-counter').innerText = `${photos.length} memories`;
+    // ---------- Photo hearts ----------
+    async function togglePhotoHeart(id, onlyAdd) {
+      if (id == null) return;
+      const key = String(id);
+      const wasLiked = photoLiked.has(key);
+      if (onlyAdd && wasLiked) return;
+
+      // update the screen right away
+      if (wasLiked) photoLiked.delete(key); else photoLiked.add(key);
+      storageSet(PHOTO_LIKED_KEY, JSON.stringify(Array.from(photoLiked)));
+      renderPhotos();
+      updateViewerActions();
+
+      try {
+        await db.collection('photos').doc(key).update({
+          hearts: firebase.firestore.FieldValue.increment(wasLiked ? -1 : 1)
+        });
+      } catch (err) {
+        console.error('photo heart error', err);
+        // undo if saving failed
+        if (wasLiked) photoLiked.add(key); else photoLiked.delete(key);
+        storageSet(PHOTO_LIKED_KEY, JSON.stringify(Array.from(photoLiked)));
+        renderPhotos();
+        updateViewerActions();
+      }
+    }
+
+    // ---------- Save / share ----------
+    function dataUrlToFile(dataUrl, name) {
+      const parts = dataUrl.split(',');
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const bin = atob(parts[1]);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new File([arr], name, { type: mime });
+    }
+
+    function downloadPhoto(p) {
+      const a = document.createElement('a');
+      a.href = p.imageData;
+      a.download = `kero-tota-${p.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    async function sharePhoto() {
+      const p = photos[currentPhotoIndex()];
+      if (!p) return;
+      try {
+        // convert synchronously so iOS still counts this as a tap
+        const file = dataUrlToFile(p.imageData, `kero-tota-${p.id}.jpg`);
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          downloadPhoto(p);
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // closed the share sheet
+        console.error('share error', err);
+        downloadPhoto(p);
+      }
+    }
+
+    // ---------- Surprise me ----------
+    function surpriseMe() {
+      const dice = document.getElementById('surprise-dice');
+      dice.classList.remove('dice-roll');
+      void dice.offsetWidth;
+      dice.classList.add('dice-roll');
 
       if (photos.length === 0) {
-        photosCarousel.innerHTML = `
-          <div class="w-full text-center py-12 bg-white rounded-2xl border border-rose-100 p-6 flex-shrink-0">
-            <p class="text-3xl mb-2">📸</p>
-            <p class="text-xs font-semibold text-slate-500">No memories added yet</p>
-            <p class="text-[11px] text-slate-400 mt-1">Upload your first photo above!</p>
+        showToast('Add your first memory first 📸');
+        return;
+      }
+      let pick = photos[0];
+      if (photos.length > 1) {
+        do {
+          pick = photos[Math.floor(Math.random() * photos.length)];
+        } while (String(pick.id) === String(lastSurpriseId));
+      }
+      lastSurpriseId = pick.id;
+      setTimeout(() => openModalById(pick.id), 350);
+    }
+
+    // ---------- Edit / delete (bottom sheets) ----------
+    function openSheet(html) {
+      document.getElementById('sheet-panel').innerHTML = html;
+      document.getElementById('sheet-overlay').classList.add('open');
+    }
+
+    function closeSheet() {
+      document.getElementById('sheet-overlay').classList.remove('open');
+      sheetPhotoId = null;
+    }
+
+    function openPhotoMenu(id) {
+      if (id == null) return;
+      sheetPhotoId = id;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openEditSheet()">✏️ Edit note</button>
+        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    function openEditSheet() {
+      const p = photos.find(x => Number(x.id) === Number(sheetPhotoId));
+      if (!p) { closeSheet(); return; }
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Edit note ✏️</p>
+        <textarea id="edit-caption" rows="4" style="font-size:16px"
+                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveCaption()">Save 💕</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+      document.getElementById('edit-caption').value = p.caption || '';
+    }
+
+    async function saveCaption() {
+      const id = sheetPhotoId;
+      const value = document.getElementById('edit-caption').value.trim();
+      try {
+        await db.collection('photos').doc(String(id)).update({ caption: value || 'Our memory ❤' });
+        closeSheet();
+        showToast('Note updated 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    function openDeleteSheet() {
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="text-4xl text-center mb-1">🥺</p>
+        <p class="font-cursive text-2xl text-rose-600 text-center">Are you sure?</p>
+        <p class="text-xs text-slate-500 text-center mt-1 mb-4 px-2">This memory will be removed from the app. The original photo stays safe in your Drive folder.</p>
+        <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmDelete()">Yes, delete it</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+      `);
+    }
+
+    async function confirmDelete() {
+      const id = sheetPhotoId;
+      try {
+        await db.collection('photos').doc(String(id)).delete();
+        closeSheet();
+        if (document.getElementById('image-modal').classList.contains('open')) closeModal();
+        showToast('Memory removed from the app');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not delete. Check your connection.');
+      }
+    }
+
+    // ---------- Gallery: carousel / grid ----------
+    function setPhotoView(view) {
+      photoView = view === 'grid' ? 'grid' : 'carousel';
+      storageSet(PHOTO_VIEW_KEY, photoView);
+      renderPhotos();
+    }
+
+    function updateViewButtons() {
+      document.getElementById('view-carousel-btn').classList.toggle('active', photoView === 'carousel');
+      document.getElementById('view-grid-btn').classList.toggle('active', photoView === 'grid');
+    }
+
+    function heartButtonHtml(p) {
+      const key = String(p.id);
+      const liked = photoLiked.has(key);
+      const hearts = Math.max(0, Number(p.hearts) || 0);
+      return `<button type="button" class="mini-btn" onclick="event.stopPropagation(); togglePhotoHeart(${Number(p.id)})" aria-label="Heart this memory">
+                <span style="font-size:15px">${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span>${hearts}</span>` : ''}
+              </button>`;
+    }
+
+    function carouselCardHtml(p, index) {
+      const tilt = TILTS[index % TILTS.length];
+      return `
+        <div class="snap-center flex-shrink-0 photo-card polaroid flex flex-col" style="--tilt:${tilt}deg">
+          <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
+            <img src="${p.imageData}" alt="Memory" loading="lazy">
+            <span class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
+              #${photos.length - index}
+            </span>
           </div>
-        `;
-      } else {
-        photosCarousel.innerHTML = photos.map((p, index) => {
-          return `
-            <div class="snap-center flex-shrink-0 photo-card bg-white rounded-2xl overflow-hidden border border-rose-100 shadow-sm flex flex-col">
-              <div class="relative photo-card-img bg-slate-100 cursor-pointer group flex-shrink-0" onclick="openModalById(${Number(p.id)})">
-                <img src="${p.imageData}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-                <div class="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
-                  <span class="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
-                    <i class="fas fa-expand mr-1"></i> Tap to View & Zoom
-                  </span>
-                </div>
-                <span class="absolute top-3 left-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
-                  #${photos.length - index}
-                </span>
+          <div class="pt-3 px-1 space-y-2" style="min-width:0">
+            <p class="font-cursive text-xl leading-snug text-slate-700 safe-text caption-clamp">${escapeHtml(p.caption)}</p>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap" style="min-width:0">
+                <span class="text-[10px] text-slate-400">${escapeHtml(formatPhotoDate(p))}</span>
+                ${photoAuthorBadge(p.author)}
               </div>
-              <div class="p-4 space-y-2" style="min-width:0">
-                <p class="text-xs text-slate-700 font-medium leading-relaxed safe-text caption-clamp">${escapeHtml(p.caption)}</p>
-                <div class="flex justify-between items-center pt-1">
-                  <span class="text-[10px] text-slate-400">${escapeHtml(p.date)}</span>
-                  <button onclick="openModalById(${Number(p.id)})" class="text-[11px] text-rose-600 font-bold hover:underline py-1 px-1">Read Full Note</button>
-                </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                ${heartButtonHtml(p)}
+                <button type="button" class="mini-btn plain" onclick="openPhotoMenu(${Number(p.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
               </div>
             </div>
-          `;
-        }).join('');
+          </div>
+        </div>
+      `;
+    }
+
+    function gridTileHtml(p) {
+      const kero = p.author === 'Kero';
+      const hasAuthor = p.author === 'Kero' || p.author === 'Tota';
+      const key = String(p.id);
+      const liked = photoLiked.has(key);
+      const hearts = Math.max(0, Number(p.hearts) || 0);
+      return `
+        <div class="polaroid" style="padding:8px 8px 8px; --tilt:0deg">
+          <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
+            <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${kero ? '🐻' : '🦜'}</span>` : ''}
+            <button type="button" onclick="event.stopPropagation(); togglePhotoHeart(${Number(p.id)})" aria-label="Heart this memory"
+                    class="absolute bottom-1.5 right-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center gap-1 text-xs font-bold text-rose-500">
+              <span style="font-size:13px">${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span>${hearts}</span>` : ''}
+            </button>
+          </div>
+          <p class="font-cursive text-base leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1">${escapeHtml(p.caption)}</p>
+          <p class="text-[10px] text-slate-400 px-0.5 mt-0.5">${escapeHtml(formatPhotoDate(p))}</p>
+        </div>
+      `;
+    }
+
+    function renderPhotos() {
+      const container = document.getElementById('photos-container');
+      const n = photos.length;
+      document.getElementById('photo-counter').innerText = `${n} ${n === 1 ? 'memory' : 'memories'} 💕`;
+      updateViewButtons();
+
+      if (n === 0) {
+        container.className = 'block';
+        container.innerHTML = `
+          <div class="text-center py-10 px-6 rounded-3xl border-2 border-dashed border-rose-200 bg-white/70">
+            <p class="text-5xl mb-2">📸</p>
+            <p class="font-cursive text-2xl text-rose-500">Your album is waiting 💕</p>
+            <p class="text-[11px] text-slate-400 mt-1">Add your first memory above and start filling it with love</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (photoView === 'grid') {
+        container.className = 'grid grid-cols-2 gap-3 pb-2';
+        let html = '';
+        let lastLabel = null;
+        photos.forEach(p => {
+          const label = monthLabel(p);
+          if (label !== lastLabel) {
+            const count = photos.filter(x => monthLabel(x) === label).length;
+            html += `<div class="col-span-2 font-cursive text-2xl text-rose-500 pt-2 px-1">${escapeHtml(label)} <span class="font-sans text-[11px] text-slate-400 font-semibold">· ${count}</span></div>`;
+            lastLabel = label;
+          }
+          html += gridTileHtml(p);
+        });
+        container.innerHTML = html;
+      } else {
+        const keepScroll = container.scrollLeft;
+        container.className = 'flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar carousel-pad';
+        container.innerHTML = photos.map((p, index) => carouselCardHtml(p, index)).join('');
+        container.scrollLeft = keepScroll;
       }
     }
 
@@ -1034,6 +1610,12 @@
       journal.forEach(j => renderedJournalIds.add(String(j.id)));
       journalFirstRender = false;
     }
+
+    // Photos screen start-up (registered last so the journal has already loaded the remembered name)
+    document.addEventListener('DOMContentLoaded', () => {
+      updateUploadAuthorButtons();
+      renderPhotos();
+    });
   </script>
 </body>
 </html>
