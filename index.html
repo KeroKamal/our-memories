@@ -77,7 +77,7 @@
     .app-main {
       padding-left: calc(1rem + env(safe-area-inset-left));
       padding-right: calc(1rem + env(safe-area-inset-right));
-      padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
     }
 
     /* Photo cards scale with the screen: max 320px, but never wider than the phone allows */
@@ -364,19 +364,31 @@
       color: #64748b; transition: all .15s ease; text-align: center;
     }
     .tab-btn i { font-size: 15px; }
-    .tab-btn.active { color: #e11d48; }
-    .tab-btn.active i { transform: scale(1.18); }
-    .tab-btn i { transition: transform .15s ease; }
+    /* bottom bar: fixed to the screen edge like the top header, follows light / dark mode */
     .bottom-nav {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
-      display: flex; gap: 2px; justify-content: center;
-      background: rgba(255,255,255,.96); border-top: 1px solid #ffe4e6;
-      box-shadow: 0 -2px 12px rgba(244,63,94,.08);
-      padding: 6px calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
-      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-      touch-action: pan-y;
+      position: fixed; z-index: 45; left: 0; right: 0; bottom: 0;
+      display: flex; justify-content: center; gap: 0;
+      background: #fff; border-top: 1px solid #ffe4e6;
+      box-shadow: 0 -1px 4px rgba(0,0,0,.05);
+      padding: 6px calc(12px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+      touch-action: none; -webkit-user-select: none; user-select: none;
     }
-    .bottom-nav .tab-btn { max-width: 110px; }
+    .bottom-nav .nav-track { position: relative; display: flex; width: min(420px, 100%); }
+    .nav-bubble {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      width: 25%; border-radius: 9999px;
+      background: #ffe4e6;
+      transition: transform .28s cubic-bezier(.3,1.3,.5,1);
+      will-change: transform; pointer-events: none;
+    }
+    .bottom-nav.dragging .nav-bubble { transition: none; }
+    .bottom-nav .tab-btn {
+      position: relative; z-index: 1; flex: 1; height: 44px; padding: 0;
+      color: #94a3b8; border-radius: 9999px; background: transparent;
+    }
+    .bottom-nav .tab-btn i { font-size: 19px; }
+    .bottom-nav .tab-btn.active { color: #e11d48; }
+    .bottom-nav .tab-btn.active i { transform: scale(1.1); }
     .screen-in-right { animation: screenInRight .22s ease; }
     .screen-in-left { animation: screenInLeft .22s ease; }
     @keyframes screenInRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
@@ -557,9 +569,10 @@
     html.dark textarea::placeholder, html.dark input::placeholder { color: #8f81a0; }
 
     html.dark .card-grad { background: linear-gradient(135deg, #261b30 0%, #2a1f36 55%, #231c38 100%); }
-    html.dark .tab-btn { color: #a99bb8; }
-    html.dark .tab-btn.active { color: #fda4af; }
-    html.dark .bottom-nav { background: rgba(36,26,46,.96); border-top-color: #3b2a46; box-shadow: 0 -2px 12px rgba(0,0,0,.3); }
+    html.dark .bottom-nav { background: #221a2c; border-top-color: #3b2a46; box-shadow: 0 -1px 4px rgba(0,0,0,.3); }
+    html.dark .nav-bubble { background: #3b2a46; }
+    html.dark .bottom-nav .tab-btn { color: #8f879f; }
+    html.dark .bottom-nav .tab-btn.active { color: #fda4af; }
     html.dark .together-card { background: linear-gradient(135deg, #be3a57 0%, #a1264f 45%, #6d4fc2 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }
     html.dark .otd-card { background: linear-gradient(135deg, #2c2130, #2a1f2c); border-color: #4a3550; }
     html.dark .otd-title { color: #fdba74; }
@@ -843,18 +856,13 @@
 
   <!-- Bottom navigation bar (tap, or swipe left / right anywhere to change screen) -->
   <nav id="bottom-nav" class="bottom-nav" aria-label="Main">
-    <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active">
-      <i class="fas fa-images"></i><span>Memories</span>
-    </button>
-    <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn">
-      <i class="fas fa-book-open"></i><span>Journal</span>
-    </button>
-    <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn">
-      <i class="fas fa-list-check"></i><span>Our List</span>
-    </button>
-    <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn">
-      <i class="fas fa-gear"></i><span>Settings</span>
-    </button>
+    <div class="nav-track">
+    <div id="nav-bubble" class="nav-bubble"></div>
+    <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active" aria-label="Memories"><i class="fas fa-images"></i></button>
+    <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn" aria-label="Journal"><i class="fas fa-book-open"></i></button>
+    <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn" aria-label="Our List"><i class="fas fa-list-check"></i></button>
+    <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn" aria-label="Settings"><i class="fas fa-gear"></i></button>
+    </div>
   </nav>
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
@@ -1414,7 +1422,53 @@
         el.classList.add(dir > 0 ? 'screen-in-right' : 'screen-in-left');
       }
       window.scrollTo(0, 0);
+      moveBubble(SCREEN_ORDER.indexOf(screen));
     }
+
+    function moveBubble(pos) {
+      const b = document.getElementById('nav-bubble');
+      if (b) b.style.transform = `translateX(${pos * 100}%)`;
+    }
+
+    // ---------- Drag the bubble along the bar ----------
+    (function () {
+      const nav = document.querySelector('#bottom-nav .nav-track');
+      const navBar = document.getElementById('bottom-nav');
+      let drag = false, moved = false, lastIdx = 0, startX = 0, lastEnd = 0;
+      function idxAt(x) {
+        const r = nav.getBoundingClientRect();
+        const w = r.width / SCREEN_ORDER.length;
+        const f = (x - r.left) / w - 0.5;                // bubble centre follows the finger
+        return Math.max(0, Math.min(SCREEN_ORDER.length - 1, f));
+      }
+      nav.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        drag = true; moved = false; startX = e.touches[0].clientX;
+        lastIdx = SCREEN_ORDER.indexOf(currentScreen);
+      }, { passive: true });
+      nav.addEventListener('touchmove', e => {
+        if (!drag) return;
+        const x = e.touches[0].clientX;
+        if (!moved && Math.abs(x - startX) < 8) return;
+        moved = true;
+        navBar.classList.add('dragging');
+        e.preventDefault();
+        const f = idxAt(x);
+        moveBubble(f);
+        const i = Math.round(f);
+        if (i !== lastIdx) { lastIdx = i; switchScreen(SCREEN_ORDER[i]); moveBubble(f); }
+      }, { passive: false });
+      function end() {
+        if (!drag) return;
+        drag = false;
+        navBar.classList.remove('dragging');
+        if (moved) { lastEnd = Date.now(); moveBubble(SCREEN_ORDER.indexOf(currentScreen)); }
+      }
+      nav.addEventListener('touchend', end);
+      nav.addEventListener('touchcancel', end);
+      // a drag must not also count as a tap on the icon under the finger
+      nav.addEventListener('click', e => { if (Date.now() - lastEnd < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+    })();
 
     // ---------- Swipe left / right to change screen (like Facebook) ----------
     (function () {
@@ -1438,7 +1492,7 @@
         if (e.touches.length !== 1) { tracking = false; return; }
         const t = e.target;
         fromBar = !!(t.closest && t.closest('#bottom-nav'));
-        tracking = fromBar || !blocked(t);
+        tracking = !fromBar && !blocked(t);
         sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
       }, { passive: true });
       document.addEventListener('touchend', e => {
