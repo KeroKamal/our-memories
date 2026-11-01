@@ -46,6 +46,17 @@
       }
     }
   </script>
+  <meta name="theme-color" content="#ffffff">
+  <!-- Apply the saved (or system) theme before the page paints, so there is no white flash at night -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
   <style>
     textarea { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -324,15 +335,6 @@
     .mood-btn:active { transform: scale(.92); }
     .mood-btn.sel { border-color: #fb7185; background: #ffe4e6; transform: scale(1.12); }
 
-    .note-row { display: flex; }
-    .note-row.right { justify-content: flex-end; }
-    .note-bubble {
-      max-width: 86%; min-width: 0; padding: 12px 14px; border-radius: 22px;
-      box-shadow: 0 2px 8px rgba(244,63,94,.08);
-    }
-    .note-kero  { background: linear-gradient(135deg, #ffe4e6, #fecdd3); border-bottom-right-radius: 6px; }
-    .note-tota  { background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-bottom-left-radius: 6px; }
-    .note-other { background: linear-gradient(135deg, #ffedd5, #fed7aa); border-bottom-left-radius: 6px; }
     .note-pop { animation: notePop .4s cubic-bezier(.2, 1.4, .4, 1); }
     @keyframes notePop {
       from { opacity: 0; transform: scale(.85) translateY(10px); }
@@ -351,6 +353,192 @@
       .journal-hearts { display: none; }
       .note-pop { animation: none; }
     }
+
+    /* ---------- Cards with the soft pastel gradient ---------- */
+    .card-grad { background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%); }
+
+    /* ---------- Tabs ---------- */
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      padding: 8px 4px; border-radius: 10px; font-size: 11px; font-weight: 700; line-height: 1.15;
+      color: #64748b; transition: all .15s ease; text-align: center;
+    }
+    .tab-btn i { font-size: 15px; }
+    .tab-btn.active { background: #fff; color: #e11d48; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+    /* ---------- Together counter ---------- */
+    .together-card {
+      position: relative; overflow: hidden; border-radius: 24px; padding: 18px 18px 16px; text-align: center; color: #fff;
+      background: linear-gradient(135deg, #fb7185 0%, #f43f5e 45%, #a78bfa 100%);
+      box-shadow: 0 8px 22px rgba(244,63,94,.28);
+    }
+    .together-card::before { content: "💞"; position: absolute; right: -4px; top: -14px; font-size: 76px; opacity: .15; transform: rotate(14deg); pointer-events: none; }
+    .together-big { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 38px; line-height: 1.1; text-shadow: 0 2px 8px rgba(0,0,0,.18); overflow-wrap: anywhere; }
+    .together-bar { height: 6px; border-radius: 9999px; background: rgba(255,255,255,.3); overflow: hidden; margin-top: 12px; }
+    .together-bar > div { height: 100%; border-radius: 9999px; background: #fff; transition: width .6s ease; }
+
+    /* ---------- On this day ---------- */
+    .otd-card { border-radius: 24px; padding: 14px 14px 12px; background: linear-gradient(135deg, #fff7ed, #fff1f2); border: 1px solid #fed7aa; }
+    .otd-title { font-family: "Dancing Script", cursive; font-size: 26px; font-weight: 700; color: #c2410c; line-height: 1.1; }
+    .otd-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #b45309; margin: 8px 2px 4px; }
+    .otd-row { display: flex; gap: 12px; overflow-x: auto; padding: 6px 2px 8px; -ms-overflow-style: none; scrollbar-width: none; }
+    .otd-row::-webkit-scrollbar { display: none; }
+    .otd-photo { flex: 0 0 auto; width: 96px; background: #fff; padding: 5px 5px 7px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.14); transform: rotate(var(--tilt, 0deg)); }
+    .otd-photo img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; }
+    .otd-note { flex: 0 0 auto; width: 150px; text-align: left; padding: 10px 10px 8px; border-radius: 4px; background: #fffdf6; box-shadow: 0 4px 12px rgba(0,0,0,.12); transform: rotate(var(--tilt, 0deg)); }
+
+    /* ---------- Several photos at once ---------- */
+    .thumb-strip { display: flex; gap: 14px; overflow-x: auto; padding: 10px 8px 12px; -ms-overflow-style: none; scrollbar-width: none; }
+    .thumb-strip::-webkit-scrollbar { display: none; }
+    .thumb { position: relative; flex: 0 0 auto; width: 88px; background: #fff; padding: 5px 5px 6px; border-radius: 4px; box-shadow: 0 4px 12px rgba(244,63,94,.18), 0 1px 2px rgba(0,0,0,.1); transform: rotate(var(--tilt, 0deg)); }
+    .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; }
+    .thumb button { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 9999px; background: #f43f5e; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+
+    /* ---------- Emoji reactions ---------- */
+    .react-chip {
+      display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 9999px;
+      background: rgba(244,63,94,.08); border: 1.5px solid transparent; font-size: 14px; line-height: 1.2;
+      transition: transform .12s ease;
+    }
+    .react-chip small { font-size: 10px; letter-spacing: -1px; }
+    .react-chip.mine { border-color: #fb7185; background: rgba(244,63,94,.15); }
+    .react-chip:active { transform: scale(1.18); }
+    .react-chip.on-dark { background: rgba(255,255,255,.15); color: #fff; }
+    .react-chip.on-dark.mine { border-color: #fb7185; background: rgba(251,113,133,.3); }
+    .react-pick {
+      width: 100%; max-width: 50px; aspect-ratio: 1 / 1; justify-self: center; border-radius: 9999px;
+      font-size: 26px; background: #fff1f2; border: 2px solid transparent;
+      display: flex; align-items: center; justify-content: center; transition: transform .12s ease;
+    }
+    .react-pick:active { transform: scale(1.2); }
+    .react-pick.sel { border-color: #f43f5e; background: #ffe4e6; }
+    @media (max-width: 359px) { .hide-xs { display: none; } }
+
+    /* ---------- Journal: paper letters ---------- */
+    .paper {
+      position: relative; padding: 22px 16px 12px 46px; border-radius: 3px 3px 8px 8px;
+      background-color: #fffdf6;
+      box-shadow: 0 5px 16px rgba(120,60,70,.16), 0 1px 2px rgba(0,0,0,.08);
+      transform: rotate(var(--tilt, 0deg));
+      color: #3b3340;
+    }
+    .paper::before { content: ""; position: absolute; left: 36px; top: 0; bottom: 0; width: 1.5px; background: rgba(244,63,94,.35); pointer-events: none; }
+    .paper::after { content: ""; position: absolute; top: -10px; left: 50%; width: 76px; height: 20px; margin-left: -38px; transform: rotate(-3deg); background: rgba(251,113,133,.5); box-shadow: 0 1px 2px rgba(0,0,0,.12); pointer-events: none; }
+    .paper-kero::after { background: rgba(251,113,133,.55); }
+    .paper-tota::after { background: rgba(167,139,250,.55); transform: rotate(3deg); }
+    .paper-other::after { background: rgba(251,191,36,.5); }
+    .paper-date { font-size: 11px; font-weight: 600; color: #a8858c; }
+    .paper-mood { font-size: 26px; line-height: 1; transform: rotate(8deg); display: inline-block; }
+    .paper-body {
+      margin: 0 -16px 0 -46px; padding: 0 16px 0 46px;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #ead9dc 27px, #ead9dc 28px);
+    }
+    .paper-greet { display: block; font-family: "Dancing Script", cursive; font-weight: 700; font-size: 23px; line-height: 28px; }
+    .paper-text { font-size: 15px; font-weight: 500; line-height: 28px; color: #3b3340; }
+    .paper-sign { text-align: right; font-family: "Dancing Script", cursive; font-weight: 700; font-size: 23px; line-height: 28px; }
+    .paper-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e8d5d9; }
+    .paper-compose { padding: 20px 16px 16px; }
+    .paper-compose::before { display: none; }
+    .paper-input {
+      display: block; box-sizing: border-box; width: calc(100% + 32px); margin: 0 -16px; padding: 0 16px;
+      border: 0; outline: 0; resize: none; background-color: transparent; color: inherit;
+      font-size: 16px; line-height: 28px;
+      background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #ead9dc 27px, #ead9dc 28px);
+      background-attachment: local;
+    }
+
+    .ink-kero { color: #be123c; }
+    .ink-tota { color: #6d28d9; }
+    .ink-other { color: #b45309; }
+
+    /* ---------- Our list: date ideas + bucket list ---------- */
+    .type-pill { flex: 1; padding: 10px 12px; border-radius: 9999px; font-size: 12px; font-weight: 700; border: 2px solid #fecdd3; background: #fff; color: #64748b; transition: all .15s ease; }
+    .type-pill.sel { background: #f43f5e; border-color: #f43f5e; color: #fff; }
+    .filter-pill { flex: 0 0 auto; padding: 7px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.75); border: 1px solid #fecdd3; color: #64748b; white-space: nowrap; }
+    .filter-pill.sel { background: #fff1f2; color: #e11d48; border-color: #fb7185; }
+    .todo-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: #fff; border: 1px solid #ffe4e6; box-shadow: 0 2px 8px rgba(244,63,94,.06); cursor: pointer; transition: transform .12s ease; }
+    .todo-row:active { transform: scale(.985); }
+    .todo-check { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9999px; border: 2.5px solid #fda4af; background: #fff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; transition: all .15s ease; }
+    .todo-check.on { background: #f43f5e; border-color: #f43f5e; }
+    .todo-row.done .todo-text { text-decoration: line-through; color: #94a3b8; }
+    .todo-row.done { opacity: .8; }
+    .suggest-chip { padding: 8px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: #fff; border: 1px dashed #fda4af; color: #e11d48; text-align: left; }
+    .pick-text { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 34px; line-height: 1.15; color: #e11d48; text-align: center; overflow-wrap: anywhere; min-height: 80px; display: flex; align-items: center; justify-content: center; transition: opacity .1s ease; }
+
+    /* ---------- Dark mode ---------- */
+    html.dark { color-scheme: dark; }
+    html.dark body.bg-rose-50 { background-color: #16111d !important; color: #ece5f3 !important; }
+    html.dark .bg-white { background-color: #221a2c !important; }
+    html.dark .bg-white\/70 { background-color: rgba(34,26,44,.75) !important; }
+    html.dark .bg-white\/80 { background-color: rgba(34,26,44,.8) !important; }
+    html.dark .bg-rose-50 { background-color: #2c2238 !important; }
+    html.dark .bg-rose-50\/50 { background-color: rgba(44,34,56,.6) !important; }
+    html.dark .bg-rose-100 { background-color: #3b2a46 !important; }
+    html.dark .bg-slate-100 { background-color: #2c2538 !important; }
+    html.dark .bg-slate-200 { background-color: #4a4058 !important; }
+    html.dark .bg-red-50 { background-color: #3a1f27 !important; }
+    html.dark .text-slate-800 { color: #ece5f3 !important; }
+    html.dark .text-slate-700 { color: #e2dbea !important; }
+    html.dark .text-slate-600 { color: #c3b8cf !important; }
+    html.dark .text-slate-500 { color: #a99bb8 !important; }
+    html.dark .text-slate-400 { color: #8f81a0 !important; }
+    html.dark .text-rose-600, html.dark .text-rose-500 { color: #fb7185 !important; }
+    html.dark .text-red-600 { color: #fca5a5 !important; }
+    html.dark .border-rose-100 { border-color: #3a2d48 !important; }
+    html.dark .border-rose-200 { border-color: #4a3858 !important; }
+    html.dark .border-rose-300 { border-color: #6a4a78 !important; }
+    html.dark textarea::placeholder, html.dark input::placeholder { color: #8f81a0; }
+
+    html.dark .card-grad { background: linear-gradient(135deg, #261b30 0%, #2a1f36 55%, #231c38 100%); }
+    html.dark .tab-btn { color: #a99bb8; }
+    html.dark .tab-btn.active { background: #3b2a46; color: #fda4af; box-shadow: none; }
+    html.dark .together-card { background: linear-gradient(135deg, #be3a57 0%, #a1264f 45%, #6d4fc2 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+    html.dark .otd-card { background: linear-gradient(135deg, #2c2130, #2a1f2c); border-color: #4a3550; }
+    html.dark .otd-title { color: #fdba74; }
+    html.dark .otd-label { color: #fbbf77; }
+    html.dark .otd-photo, html.dark .thumb { background: #2a2136; }
+    html.dark .otd-note { background: #2b2433; color: #e2dbea; }
+    html.dark .polaroid { background: #2a2136; border-color: #3a2d48; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+    html.dark .polaroid-img { background: #1c1524; }
+    html.dark .mini-btn { background: #3b2a46; color: #fda4af; }
+    html.dark .mini-btn.plain { background: transparent; color: #a99bb8; }
+    html.dark .view-btn { color: #a99bb8; }
+    html.dark .view-btn.active { background: #3b2a46; color: #fda4af; box-shadow: none; }
+    html.dark #sheet-panel { background: #221a2c; }
+    html.dark #sheet-overlay { background: rgba(0,0,0,.62); }
+    html.dark #who-overlay { background: linear-gradient(135deg, #1a1322 0%, #201729 55%, #181326 100%); }
+    html.dark .who-big { background: #2a2136; border-color: #4a3858; color: #e2dbea; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+    html.dark .who-big.last { background: #3b2a46; border-color: #fb7185; color: #fda4af; }
+    html.dark .who-btn { background: #2a2136; border-color: #4a3858; color: #c3b8cf; }
+    html.dark .mood-btn { background: #2a2136; }
+    html.dark .mood-btn.sel { background: #3b2a46; border-color: #fb7185; }
+    html.dark .heart-btn { background: rgba(255,255,255,.1); color: #c3b8cf; }
+    html.dark .heart-btn.liked { background: rgba(255,255,255,.18); }
+    html.dark #toast { background: rgba(70,56,88,.97); }
+    html.dark .react-chip { background: rgba(255,255,255,.1); color: #ece5f3; }
+    html.dark .react-chip.mine { background: rgba(251,113,133,.25); }
+    html.dark .react-chip.on-dark { background: rgba(255,255,255,.15); }
+    html.dark .react-pick { background: #3b2a46; }
+    html.dark .react-pick.sel { background: #5a3263; border-color: #fb7185; }
+    html.dark .paper { background-color: #2b2433; color: #e9e1f0; box-shadow: 0 5px 16px rgba(0,0,0,.5); }
+    html.dark .paper::before { background: rgba(251,113,133,.4); }
+    html.dark .paper-date { color: #9d8fb0; }
+    html.dark .paper-text { color: #ece5f3; }
+    html.dark .paper-body, html.dark .paper-input { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #3d3347 27px, #3d3347 28px); }
+    html.dark .paper-actions { border-top-color: #43384f; }
+    html.dark .type-pill { background: #2a2136; border-color: #4a3858; color: #c3b8cf; }
+    html.dark .type-pill.sel { background: #f43f5e; border-color: #f43f5e; color: #fff; }
+    html.dark .filter-pill { background: rgba(34,26,44,.8); border-color: #4a3858; color: #c3b8cf; }
+    html.dark .filter-pill.sel { background: #3b2a46; border-color: #fb7185; color: #fda4af; }
+    html.dark .todo-row { background: #221a2c; border-color: #3a2d48; box-shadow: none; }
+    html.dark .todo-check { background: #2a2136; border-color: #6a4a78; }
+    html.dark .todo-check.on { background: #f43f5e; border-color: #f43f5e; }
+    html.dark .todo-row.done .todo-text { color: #8f81a0; }
+    html.dark .suggest-chip { background: #2a2136; border-color: #6a4a78; color: #fda4af; }
+    html.dark .pick-text { color: #fda4af; }
+    html.dark .ink-kero { color: #fda4af; }
+    html.dark .ink-tota { color: #c4b5fd; }
+    html.dark .ink-other { color: #fcd34d; }
   </style>
 </head>
 <body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
@@ -362,21 +550,40 @@
         <span class="text-2xl">💖</span>
         <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
-      <button id="who-chip" type="button" onclick="showWhoOverlay()" aria-label="Switch person"
-              class="hidden items-center gap-1 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition"></button>
+      <div class="flex items-center gap-2">
+        <button id="theme-btn" type="button" onclick="toggleTheme()" aria-label="Switch to dark mode"
+                class="flex items-center justify-center w-9 h-9 bg-rose-50 border border-rose-100 rounded-full text-base leading-none active:scale-95 transition">🌙</button>
+        <button id="who-chip" type="button" onclick="showWhoOverlay()" aria-label="Switch person"
+                class="hidden items-center gap-1 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition"></button>
+      </div>
     </div>
   </header>
 
   <!-- Main Container -->
   <main class="app-main flex-1 max-w-md w-full mx-auto pt-4 space-y-6">
 
+    <!-- Together counter -->
+    <div id="together-card" class="together-card">
+      <p class="text-[11px] font-bold uppercase tracking-widest opacity-90">Together for</p>
+      <p id="together-main" class="together-big">…</p>
+      <p id="together-sub" class="text-[12px] font-semibold opacity-95 mt-0.5"></p>
+      <div class="together-bar"><div id="together-bar-fill" style="width:0%"></div></div>
+      <p id="together-anniv" class="text-[12px] font-bold mt-2"></p>
+    </div>
+
+    <!-- On this day -->
+    <div id="onthisday-card" class="otd-card hidden"></div>
+
     <!-- Screen Switcher Tabs -->
-    <div class="flex bg-white/70 p-1 rounded-xl border border-rose-100 shadow-sm">
-      <button id="screen-photos-btn" onclick="switchScreen('photos')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm">
-        <i class="fas fa-images mr-1"></i> Memories Gallery
+    <div class="flex gap-1 bg-white/70 p-1 rounded-xl border border-rose-100 shadow-sm">
+      <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active">
+        <i class="fas fa-images"></i><span>Memories Gallery</span>
       </button>
-      <button id="screen-journal-btn" onclick="switchScreen('journal')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600">
-        <i class="fas fa-book-heart mr-1"></i> Shared Journal
+      <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn">
+        <i class="fas fa-book-open"></i><span>Shared Journal</span>
+      </button>
+      <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn">
+        <i class="fas fa-list-check"></i><span>Our List</span>
       </button>
     </div>
 
@@ -384,29 +591,23 @@
     <section id="screen-photos" class="space-y-4">
 
       <!-- Upload Card -->
-      <div class="rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4"
-           style="background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);">
+      <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4">
         <div class="text-center">
           <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Add a memory 📸</h3>
-          <p class="text-[11px] text-slate-400 mt-0.5">Keep this moment forever</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Pick one photo, or several at once</p>
         </div>
 
-        <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+        <input type="file" id="photo-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
 
-        <!-- Preview Box (small polaroid) -->
-        <div id="image-preview-container" class="hidden relative polaroid mx-auto" style="--tilt:-2deg; width: min(200px, 60%);">
-          <div style="width:100%; aspect-ratio:1/1; overflow:hidden; border-radius:2px; background:#f1f5f9;">
-            <img id="image-preview" src="" style="width:100%; height:100%; object-fit:cover; display:block;">
-          </div>
-          <button onclick="clearSelectedFile()" aria-label="Remove photo" class="absolute -top-3 -right-3 bg-rose-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-xs shadow-md">
-            <i class="fas fa-times"></i>
-          </button>
+        <!-- Selected photos (small polaroids) -->
+        <div id="image-preview-container" class="hidden">
+          <div id="thumb-strip" class="thumb-strip"></div>
         </div>
 
         <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()"
                 class="w-full flex items-center justify-center gap-2 bg-white/70 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-2xl text-xs font-bold transition">
           <i class="fas fa-camera text-base"></i>
-          <span>Choose Image</span>
+          <span id="select-photo-text">Choose Images</span>
         </button>
 
         <div class="space-y-1.5 hidden">
@@ -418,7 +619,7 @@
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Notes</label>
+          <label id="photo-notes-label" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Notes</label>
           <!-- font-size 16px prevents iOS from auto-zooming the page when focusing the field -->
           <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..."
                     style="font-size:16px"
@@ -464,12 +665,11 @@
     <!-- SCREEN 2: JOURNAL -->
     <section id="screen-journal" class="space-y-4 hidden">
 
-      <!-- Compose card -->
-      <div class="relative z-10 rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4"
-           style="background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);">
+      <!-- Compose: a sheet of letter paper -->
+      <div class="relative z-10 paper paper-compose space-y-3" style="margin-top:6px">
         <div class="text-center">
           <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Dear love 💌</h3>
-          <p class="text-[11px] text-slate-400 mt-0.5">Write something sweet for each other</p>
+          <p id="compose-as" class="text-[11px] text-slate-400 mt-0.5">Write something sweet for each other</p>
         </div>
 
         <div class="space-y-1.5 hidden">
@@ -491,16 +691,14 @@
           </div>
         </div>
 
-        <textarea id="journal-text" rows="3" placeholder="Write thoughts or notes to each other..."
-                  style="font-size:16px"
-                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80"></textarea>
+        <textarea id="journal-text" rows="4" placeholder="Write thoughts or notes to each other..." class="paper-input"></textarea>
 
         <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition">
           Send 💌
         </button>
       </div>
 
-      <div id="journal-feed" class="relative z-10 space-y-3">
+      <div id="journal-feed" class="relative z-10 space-y-7 pt-3">
         <!-- Dynamically Populated -->
       </div>
 
@@ -515,6 +713,39 @@
         <span style="left: 84%; font-size: 24px; animation-duration: 20s; animation-delay: 1s;">💗</span>
         <span style="left: 93%; font-size: 15px; animation-duration: 13s; animation-delay: 9s;">💕</span>
       </div>
+    </section>
+
+    <!-- SCREEN 3: OUR LIST (date ideas + bucket list) -->
+    <section id="screen-list" class="space-y-4 hidden">
+
+      <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4">
+        <div class="text-center">
+          <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Our list ✨</h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Date ideas and dreams to tick off together</p>
+        </div>
+
+        <button id="pick-date-btn" type="button" onclick="pickDateIdea()"
+                class="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md transition">
+          <span id="pick-dice" class="text-lg leading-none">🎲</span> Pick a date idea for us
+        </button>
+
+        <div class="flex gap-2">
+          <button id="type-date" type="button" class="type-pill sel" onclick="setNewItemType('date')">🌹 Date idea</button>
+          <button id="type-bucket" type="button" class="type-pill" onclick="setNewItemType('bucket')">✨ Bucket list</button>
+        </div>
+
+        <div class="flex gap-2">
+          <input id="bucket-text" type="text" maxlength="140" placeholder="A new idea…" style="font-size:16px"
+                 onkeydown="if (event.key === 'Enter') addBucketItem()"
+                 class="flex-1 min-w-0 p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80">
+          <button type="button" onclick="addBucketItem()" aria-label="Add to the list"
+                  class="flex-shrink-0 w-12 rounded-2xl bg-rose-500 text-white font-bold text-xl active:scale-95 transition shadow-md">+</button>
+        </div>
+      </div>
+
+      <div id="bucket-progress"></div>
+      <div id="bucket-filters" class="flex gap-2 overflow-x-auto no-scrollbar px-0.5 pb-1"></div>
+      <div id="bucket-list" class="space-y-2"></div>
     </section>
 
   </main>
@@ -545,14 +776,17 @@
       <img id="modal-image" src="" alt="Zoomable Memory">
     </div>
 
-    <!-- Actions: heart / save & share / more -->
-    <div class="flex items-center justify-center gap-3 max-w-lg w-full mx-auto flex-shrink-0 pb-2" style="position:relative; z-index:2;">
+    <!-- Actions: heart / react / save & share / more -->
+    <div class="flex items-center justify-center gap-2 max-w-lg w-full mx-auto flex-shrink-0 pb-2" style="position:relative; z-index:2;">
       <button id="modal-heart-btn" type="button" class="viewer-btn" onclick="togglePhotoHeart(currentPhotoId)" aria-label="Heart this memory">
         <span id="modal-heart-icon" class="text-lg leading-none">🤍</span>
         <span id="modal-heart-count"></span>
       </button>
+      <button type="button" class="viewer-btn" onclick="openReactSheet('photos', currentPhotoId)" aria-label="React with an emoji">
+        <span class="text-lg leading-none">🙂</span>
+      </button>
       <button type="button" class="viewer-btn" onclick="sharePhoto()" aria-label="Save or share">
-        <i class="fas fa-arrow-up-from-bracket"></i> Save / Share
+        <i class="fas fa-arrow-up-from-bracket"></i> <span class="hide-xs">Save / Share</span>
       </button>
       <button type="button" class="viewer-btn" onclick="openPhotoMenu(currentPhotoId)" aria-label="More options">
         <i class="fas fa-ellipsis"></i>
@@ -566,6 +800,7 @@
         <span id="modal-author"></span>
       </div>
       <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1"></p>
+      <div id="modal-reactions" class="flex flex-wrap gap-1.5 pt-1"></div>
     </div>
   </div>
 
@@ -819,7 +1054,7 @@
       document.getElementById('nav-next').classList.toggle('hidden-arrow', idx < 0 || idx >= total - 1);
     }
 
-    // heart button + author badge in the viewer
+    // heart button + author badge + reactions in the viewer
     function updateViewerActions() {
       const p = photos[currentPhotoIndex()];
       if (!p) return;
@@ -828,6 +1063,7 @@
       document.getElementById('modal-heart-icon').textContent = liked ? '❤️' : '🤍';
       document.getElementById('modal-heart-count').textContent = h > 0 ? h : '';
       document.getElementById('modal-author').innerHTML = photoAuthorBadge(p.author);
+      document.getElementById('modal-reactions').innerHTML = reactionChipsHtml('photos', p, true);
     }
 
     // when the photo changed on the server while the viewer is open (caption edit, hearts)
@@ -1014,6 +1250,7 @@
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
+      renderOnThisDay();
       // keep the viewer correct if photos change while it is open
       if (document.getElementById('image-modal').classList.contains('open')) {
         if (currentPhotoIndex() < 0) {
@@ -1028,20 +1265,14 @@
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
       journal = snapshot.docs.map(doc => doc.data());
       renderJournal();
+      renderOnThisDay();
     }, err => console.error('journal listener error', err));
 
     function switchScreen(screen) {
-      document.getElementById('screen-photos').classList.toggle('hidden', screen !== 'photos');
-      document.getElementById('screen-journal').classList.toggle('hidden', screen !== 'journal');
-
-      document.getElementById('screen-photos-btn').className = screen === 'photos'
-        ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
-        : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
-
-      document.getElementById('screen-journal-btn').className = screen === 'journal'
-        ? 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-rose-600 bg-white shadow-sm'
-        : 'flex-1 py-2.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-rose-600';
-
+      ['photos', 'journal', 'list'].forEach(name => {
+        document.getElementById('screen-' + name).classList.toggle('hidden', name !== screen);
+        document.getElementById('screen-' + name + '-btn').classList.toggle('active', name === screen);
+      });
       if (screen === 'photos') updateUploadAuthorButtons(); // keep "who's adding it" in sync with the journal
     }
 
@@ -1063,42 +1294,63 @@
     }
 
     function setUploadButtonReady() {
+      const n = selectedFiles.length;
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = false;
       uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
-      document.getElementById('upload-btn-text').innerText = "Upload";
+      document.getElementById('upload-btn-text').innerText = n > 1 ? `Upload ${n} photos` : 'Upload';
     }
 
-    function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      selectedFileName = file.name;
-      selectedFileMime = file.type;
-      const reader = new FileReader();
-      reader.onload = async function (e) {
-        selectedFileBase64 = e.target.result.split(',')[1];
-        selectedCompressedDataUrl = await compressImage(e.target.result);
-
-        document.getElementById('image-preview').src = selectedCompressedDataUrl;
-        document.getElementById('image-preview-container').classList.remove('hidden');
-        document.getElementById('select-photo-btn').classList.add('hidden');
-        setUploadButtonReady();
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function clearSelectedFile() {
-      selectedFileBase64 = null;
-      selectedCompressedDataUrl = null;
-      document.getElementById('photo-file-input').value = '';
-      document.getElementById('image-preview-container').classList.add('hidden');
-      document.getElementById('select-photo-btn').classList.remove('hidden');
-
+    function setUploadButtonIdle() {
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = true;
       uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
       document.getElementById('upload-btn-text').innerText = "Select an image first";
+    }
+
+    // photos chosen but not uploaded yet (kept as File objects; they are read one by one while uploading)
+    let selectedFiles = [];            // [{ file, url }]
+    const MAX_FILES = 10;
+    const THUMB_TILTS = [-3, 2, -1.5, 3, -2, 1.5];
+
+    function handleFileSelect(event) {
+      const files = Array.from(event.target.files || []).filter(f => (f.type && f.type.indexOf('image/') === 0) || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name));
+      event.target.value = '';           // lets you pick the very same photo again later
+      if (!files.length || isUploading) return;
+
+      const room = MAX_FILES - selectedFiles.length;
+      if (files.length > room) showToast(`You can add up to ${MAX_FILES} photos at once 📸`);
+      files.slice(0, Math.max(0, room)).forEach(f => selectedFiles.push({ file: f, url: URL.createObjectURL(f) }));
+      renderSelected();
+    }
+
+    function removeSelected(index) {
+      if (isUploading) return;
+      const item = selectedFiles[index];
+      if (item) URL.revokeObjectURL(item.url);
+      selectedFiles.splice(index, 1);
+      renderSelected();
+    }
+
+    function clearSelectedFile() {
+      selectedFiles.forEach(x => URL.revokeObjectURL(x.url));
+      selectedFiles = [];
+      document.getElementById('photo-file-input').value = '';
+      renderSelected();
+    }
+
+    function renderSelected() {
+      const n = selectedFiles.length;
+      document.getElementById('image-preview-container').classList.toggle('hidden', n === 0);
+      document.getElementById('thumb-strip').innerHTML = selectedFiles.map((x, i) => `
+        <div class="thumb" style="--tilt:${THUMB_TILTS[i % THUMB_TILTS.length]}deg">
+          <img src="${x.url}" alt="Selected photo ${i + 1}">
+          <button type="button" onclick="removeSelected(${i})" aria-label="Remove photo ${i + 1}"><i class="fas fa-times"></i></button>
+        </div>
+      `).join('');
+      document.getElementById('select-photo-text').textContent = n === 0 ? 'Choose Images' : (n >= MAX_FILES ? `${n} photos selected` : 'Add more photos');
+      document.getElementById('photo-notes-label').textContent = n > 1 ? `Notes · the same note goes under all ${n} photos` : 'Notes';
+      if (n === 0) setUploadButtonIdle(); else if (!isUploading) setUploadButtonReady();
     }
 
     function setProgress(pct, text) {
@@ -1107,9 +1359,18 @@
       document.getElementById('upload-progress-text').textContent = text || '';
     }
 
+    function readAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error || new Error('Could not read the photo'));
+        r.readAsDataURL(file);
+      });
+    }
+
     async function uploadMemory() {
+      if (!selectedFiles.length || isUploading) return;
       const caption = document.getElementById('photo-caption').value.trim();
-      if (!selectedFileBase64 || !selectedCompressedDataUrl || isUploading) return;
 
       let author = null;
       try { author = (typeof journalAuthor !== 'undefined') ? journalAuthor : null; } catch (e) { author = null; }
@@ -1120,59 +1381,87 @@
       }
 
       isUploading = true;
+      const total = selectedFiles.length;
+      const queue = selectedFiles.slice();
+      const baseId = Date.now();
+      let uploaded = 0;
+      let failed = false;
+
       const uploadBtn = document.getElementById('upload-drive-btn');
       const btnText = document.getElementById('upload-btn-text');
       uploadBtn.disabled = true;
       uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
       btnText.innerText = "Uploading...";
 
-      // slowly creeping bar while the photo travels to Drive
-      let pct = 6;
-      setProgress(pct, 'Sending your photo… 📤');
-      const creep = setInterval(() => {
-        pct += (62 - pct) * 0.08;
-        document.getElementById('upload-progress-bar').style.width = pct + '%';
-      }, 300);
+      for (let i = 0; i < queue.length; i++) {
+        const item = queue[i];
+        const label = total > 1 ? `Photo ${i + 1} of ${total}` : 'Your photo';
+        const segStart = (i / total) * 100;
+        const segEnd = ((i + 1) / total) * 100;
+        let pct = segStart + 3;
+        setProgress(pct, `${label}… 📤`);
+        // slowly creeping bar while this photo travels to Drive
+        const creep = setInterval(() => {
+          pct += ((segStart + (segEnd - segStart) * 0.7) - pct) * 0.1;
+          document.getElementById('upload-progress-bar').style.width = pct + '%';
+        }, 300);
 
-      try {
-        await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image: selectedFileBase64,
-            mimeType: selectedFileMime,
-            filename: selectedFileName,
-            caption: caption || 'Our memory'
-          })
-        });
-        clearInterval(creep);
-        setProgress(80, 'Adding it to your album… 💕');
+        try {
+          const dataUrl = await readAsDataURL(item.file);
+          const base64 = dataUrl.split(',')[1];
+          const compressed = await compressImage(dataUrl);
 
-        const newPhoto = {
-          id: Date.now(),
-          imageData: selectedCompressedDataUrl,
-          caption: caption || 'Our memory ❤',
-          author: author,
-          hearts: 0,
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        };
+          await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image: base64,
+              mimeType: item.file.type || 'image/jpeg',
+              filename: item.file.name,
+              caption: caption || 'Our memory'
+            })
+          });
+          clearInterval(creep);
+          setProgress(segStart + (segEnd - segStart) * 0.85, `${label}: adding it to your album… 💕`);
 
-        await db.collection('photos').doc(newPhoto.id.toString()).set(newPhoto);
+          const newPhoto = {
+            id: baseId + (total - 1 - i),   // the first photo you picked stays on top
+            imageData: compressed,
+            caption: caption || 'Our memory ❤',
+            author: author,
+            hearts: 0,
+            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          };
+          await db.collection('photos').doc(newPhoto.id.toString()).set(newPhoto);
 
+          uploaded++;
+          URL.revokeObjectURL(item.url);
+          selectedFiles = selectedFiles.filter(x => x !== item);
+          renderSelected();
+        } catch (err) {
+          clearInterval(creep);
+          console.error(err);
+          failed = true;
+          break;
+        }
+      }
+
+      isUploading = false;
+
+      if (!failed) {
         setProgress(100, 'Saved! 🎉');
         document.getElementById('photo-caption').value = '';
         clearSelectedFile();
-        showToast('Memory added 💕');
+        showToast(total > 1 ? `${uploaded} memories added 💕` : 'Memory added 💕');
         setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
-      } catch (err) {
-        clearInterval(creep);
-        console.error(err);
+      } else {
         document.getElementById('upload-progress').classList.add('hidden');
-        showToast('Error uploading. Please check your internet connection.');
-        setUploadButtonReady();
+        showToast(uploaded > 0
+          ? `${uploaded} of ${total} uploaded. Tap Upload to try the rest 💕`
+          : 'Error uploading. Please check your internet connection.');
+        renderSelected();
       }
-      isUploading = false;
     }
 
     // ---------- Journal: author, mood, hearts ----------
@@ -1424,6 +1713,9 @@
       document.getElementById('sheet-overlay').classList.remove('open');
       sheetPhotoId = null;
       sheetNoteId = null;
+      sheetReact = null;
+      sheetItemId = null;
+      clearInterval(pickTimer);
     }
 
     // ---------- Journal notes: edit / delete ----------
@@ -1574,6 +1866,7 @@
 
     function carouselCardHtml(p, index) {
       const tilt = TILTS[index % TILTS.length];
+      const chips = reactionChipsHtml('photos', p, false);
       return `
         <div class="snap-center flex-shrink-0 photo-card polaroid flex flex-col" style="--tilt:${tilt}deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
@@ -1591,9 +1884,11 @@
               </div>
               <div class="flex items-center gap-1 flex-shrink-0">
                 ${heartButtonHtml(p)}
+                <button type="button" class="mini-btn" onclick="event.stopPropagation(); openReactSheet('photos', ${Number(p.id)})" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>
                 <button type="button" class="mini-btn plain" onclick="openPhotoMenu(${Number(p.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
               </div>
             </div>
+            ${chips ? `<div class="flex flex-wrap gap-1.5">${chips}</div>` : ''}
           </div>
         </div>
       `;
@@ -1605,11 +1900,13 @@
       const key = String(p.id);
       const liked = photoLiked.has(key);
       const hearts = Math.max(0, Number(p.hearts) || 0);
+      const rx = reactionEmojis(p);
       return `
         <div class="polaroid" style="padding:8px 8px 8px; --tilt:0deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
             ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${kero ? '🐻' : '🦜'}</span>` : ''}
+            ${rx ? `<span class="absolute bottom-1.5 left-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center text-sm pointer-events-none">${rx}</span>` : ''}
             <button type="button" onclick="event.stopPropagation(); togglePhotoHeart(${Number(p.id)})" aria-label="Heart this memory"
                     class="absolute bottom-1.5 right-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center gap-1 text-xs font-bold text-rose-500">
               <span style="font-size:13px">${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span>${hearts}</span>` : ''}
@@ -1675,32 +1972,36 @@
         return;
       }
 
-      journalFeed.innerHTML = journal.map(j => {
+      journalFeed.innerHTML = journal.map((j, index) => {
         const kind = authorKind(j.author);
         const key = String(j.id);
-        const isRight = kind === 'kero';
         const isNew = !journalFirstRender && !renderedJournalIds.has(key);
         const liked = journalLiked.has(key);
         const hearts = Math.max(0, Number(j.hearts) || 0);
         const icon = kind === 'kero' ? '🐻' : kind === 'tota' ? '🦜' : '💕';
-        const nameColor = kind === 'kero' ? '#e11d48' : kind === 'tota' ? '#7c3aed' : '#c2410c';
+        const greet = kind === 'kero' ? 'Dear Tota,' : kind === 'tota' ? 'Dear Kero,' : 'Dear love,';
+        const tilt = (index % 2 === 0) ? -0.5 : 0.5;
+        const chips = reactionChipsHtml('journal', j, false);
 
         return `
-          <div class="note-row ${isRight ? 'right' : ''}">
-            <div class="note-bubble note-${kind} ${isNew ? 'note-pop' : ''}">
-              <div class="flex items-center justify-between gap-3 mb-1">
-                <span class="text-[11px] font-bold" style="color:${nameColor}">${icon} ${escapeHtml(j.author)}</span>
-                ${j.mood ? `<span class="text-lg leading-none">${escapeHtml(j.mood)}</span>` : ''}
-              </div>
-              <p class="font-sans text-[15px] font-medium leading-relaxed text-slate-700 safe-text">${escapeHtml(j.text)}</p>
-              <div class="flex items-center justify-between gap-3 mt-2">
-                <span class="text-[10px] text-slate-500">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
-                    <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
-                  </button>
-                  <button type="button" class="heart-btn" style="min-width:30px; justify-content:center; color:#64748b" onclick="openNoteMenu(${Number(j.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
-                </div>
+          <div id="note-${Number(j.id)}" class="paper paper-${kind} ${isNew ? 'note-pop' : ''}" style="--tilt:${tilt}deg">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <span class="paper-date">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
+              ${j.mood ? `<span class="paper-mood">${escapeHtml(j.mood)}</span>` : ''}
+            </div>
+            <div class="paper-body">
+              <span class="paper-greet ink-${kind}">${greet}</span>
+              <div class="paper-text safe-text">${escapeHtml(j.text)}</div>
+              <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(j.author)}</div>
+            </div>
+            <div class="paper-actions">
+              <div class="flex flex-wrap gap-1.5" style="min-width:0">${chips}</div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
+                  <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
+                </button>
+                <button type="button" class="heart-btn" style="min-width:34px; justify-content:center" onclick="openReactSheet('journal', ${Number(j.id)})" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>
+                <button type="button" class="heart-btn" style="min-width:34px; justify-content:center; color:#64748b" onclick="openNoteMenu(${Number(j.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
               </div>
             </div>
           </div>
@@ -1743,6 +2044,10 @@
       updateAuthorButtons();
       updateUploadAuthorButtons();
       updateHeaderUser();
+      updateComposeAs();
+      renderPhotos();
+      renderJournal();
+      updateViewerActions();
       hideWhoOverlay();
     }
 
@@ -1752,6 +2057,556 @@
       renderPhotos();
       updateHeaderUser();
       showWhoOverlay(true); // the choose screen is always the first thing you see
+    });
+
+    // =====================================================================
+    // Theme (dark mode for reading at night)
+    // =====================================================================
+    function applyTheme(dark) {
+      document.documentElement.classList.toggle('dark', dark);
+      const btn = document.getElementById('theme-btn');
+      if (btn) {
+        btn.textContent = dark ? '☀️' : '🌙';
+        btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      }
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', dark ? '#1c1524' : '#ffffff');
+    }
+
+    function systemPrefersDark() {
+      try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
+    }
+
+    function initTheme() {
+      const saved = storageGet('theme');
+      applyTheme(saved ? saved === 'dark' : systemPrefersDark());
+      try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+          if (!storageGet('theme')) applyTheme(e.matches);   // follow the phone until you choose yourself
+        });
+      } catch (e) {}
+    }
+
+    function toggleTheme() {
+      const dark = !document.documentElement.classList.contains('dark');
+      storageSet('theme', dark ? 'dark' : 'light');
+      applyTheme(dark);
+    }
+
+    // =====================================================================
+    // Together counter
+    // =====================================================================
+    const TOGETHER_START = { y: 2026, m: 6, d: 29 };   // 29.07.2026 (month is 0-based: 6 = July)
+    const TOGETHER_START_LABEL = '29.07.2026';
+
+    function utcDay(y, m, d) { return Date.UTC(y, m, d); }
+    function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+    function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+    function updateTogether(nowOverride) {
+      const el = document.getElementById('together-main');
+      if (!el) return;
+      const S = TOGETHER_START;
+      const now = nowOverride || new Date();
+      const today = utcDay(now.getFullYear(), now.getMonth(), now.getDate());
+      const start = utcDay(S.y, S.m, S.d);
+      const total = Math.max(0, daysBetween(start, today));
+
+      let years = now.getFullYear() - S.y;
+      if (today < utcDay(S.y + years, S.m, S.d)) years--;
+      years = Math.max(0, years);
+
+      const lastAnniv = utcDay(S.y + years, S.m, S.d);
+      const nextAnniv = utcDay(S.y + years + 1, S.m, S.d);
+      const rem = Math.max(0, daysBetween(lastAnniv, today));
+
+      let main;
+      if (years === 0) main = total === 0 ? 'our first day' : plural(total, 'day');
+      else main = plural(years, 'year') + (rem > 0 ? ' and ' + plural(rem, 'day') : '');
+
+      const sub = years === 0 ? 'since ' + TOGETHER_START_LABEL : plural(total, 'day') + ' in total · since ' + TOGETHER_START_LABEL;
+
+      let anniv, progress;
+      if (years >= 1 && rem === 0) {
+        anniv = 'Happy anniversary! 🎉🥳';
+        progress = 100;
+      } else {
+        const left = daysBetween(today, nextAnniv);
+        const label = (years + 1) + '-year anniversary';
+        anniv = left === 1 ? label + ' is tomorrow 🎉' : label + ' in ' + plural(left, 'day') + ' 🎉';
+        const span = Math.max(1, daysBetween(lastAnniv, nextAnniv));
+        progress = Math.min(100, Math.max(0, (daysBetween(lastAnniv, today) / span) * 100));
+      }
+
+      el.textContent = main + ' 💕';
+      document.getElementById('together-sub').textContent = sub;
+      document.getElementById('together-anniv').textContent = anniv;
+      document.getElementById('together-bar-fill').style.width = progress + '%';
+    }
+
+    // =====================================================================
+    // On this day: photos and notes from exactly a month / a year ago
+    // =====================================================================
+    function otdTargets(nowOverride) {
+      const now = nowOverride || new Date();
+      const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+      const targets = [];
+      const prevMonthEnd = new Date(y, m, 0);                    // last day of the previous month
+      targets.push({ label: '1 month ago', y: prevMonthEnd.getFullYear(), m: prevMonthEnd.getMonth(), d: Math.min(d, prevMonthEnd.getDate()) });
+      for (let k = 1; k <= 10; k++) {
+        const dim = new Date(y - k, m + 1, 0).getDate();         // days in that month, that year (handles 29 Feb)
+        targets.push({ label: k === 1 ? '1 year ago' : k + ' years ago', y: y - k, m: m, d: Math.min(d, dim) });
+      }
+      return targets;
+    }
+
+    function sameLocalDay(ts, t) {
+      const d = new Date(Number(ts));
+      return !isNaN(d.getTime()) && d.getFullYear() === t.y && d.getMonth() === t.m && d.getDate() === t.d;
+    }
+
+    function goToNote(id) {
+      switchScreen('journal');
+      setTimeout(() => {
+        const el = document.getElementById('note-' + id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 60);
+    }
+
+    function renderOnThisDay(nowOverride) {
+      const el = document.getElementById('onthisday-card');
+      if (!el) return;
+      const groups = otdTargets(nowOverride).map(t => ({
+        t,
+        ph: photos.filter(p => sameLocalDay(p.id, t)),
+        no: journal.filter(j => sameLocalDay(j.id, t))
+      })).filter(g => g.ph.length || g.no.length);
+
+      if (!groups.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.classList.remove('hidden');
+      el.innerHTML = `<p class="otd-title">On this day 🕰️</p>` + groups.map(g => `
+        <div>
+          <p class="otd-label">${g.t.label}</p>
+          <div class="otd-row">
+            ${g.ph.map((p, i) => `
+              <button type="button" class="otd-photo" style="--tilt:${i % 2 ? 2 : -2}deg" onclick="openModalById(${Number(p.id)})" aria-label="Open memory">
+                <img src="${p.imageData}" alt="Memory" loading="lazy">
+              </button>`).join('')}
+            ${g.no.map((j, i) => `
+              <button type="button" class="otd-note" style="--tilt:${i % 2 ? -1.5 : 1.5}deg" onclick="goToNote(${Number(j.id)})" aria-label="Open note">
+                <p class="text-[12px] leading-snug font-medium safe-text caption-clamp">${escapeHtml(j.text)}</p>
+                <p class="font-cursive text-base mt-1 ink-${authorKind(j.author)}">— ${escapeHtml(j.author)}</p>
+              </button>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // =====================================================================
+    // Emoji reactions (photos + journal notes). One reaction per person per item.
+    // =====================================================================
+    const REACTIONS = ['😂', '😍', '🥹', '😮', '🔥', '👏'];
+    let sheetReact = null;
+
+    function itemOf(col, id) {
+      const arr = col === 'photos' ? photos : journal;
+      return arr.find(x => String(x.id) === String(id));
+    }
+
+    function personEmoji(name) { return name === 'Kero' ? '🐻' : name === 'Tota' ? '🦜' : '💕'; }
+
+    function reactionGroups(item) {
+      const r = (item && item.reactions) || {};
+      const groups = {};
+      Object.keys(r).forEach(name => {
+        const e = r[name];
+        if (!e) return;
+        (groups[e] = groups[e] || []).push(name);
+      });
+      return groups;
+    }
+
+    function reactionEmojis(item) { return Object.keys(reactionGroups(item)).join(''); }
+
+    function reactionChipsHtml(col, item, onDark) {
+      const me = currentUser();
+      const groups = reactionGroups(item);
+      return Object.keys(groups).map(e => {
+        const names = groups[e];
+        const mine = names.indexOf(me) !== -1;
+        return `<button type="button" class="react-chip ${mine ? 'mine' : ''} ${onDark ? 'on-dark' : ''}" onclick="event.stopPropagation(); setReaction('${col}', ${Number(item.id)}, '${e}')" aria-label="Reaction ${e}"><span>${e}</span><small>${names.map(personEmoji).join('')}</small></button>`;
+      }).join('');
+    }
+
+    async function setReaction(col, id, emoji) {
+      const me = currentUser();
+      if (!me) { showWhoOverlay(); return; }
+      const item = itemOf(col, id);
+      const current = item && item.reactions ? item.reactions[me] : null;
+      const remove = current === emoji;                      // tapping your own reaction again removes it
+      try {
+        await db.collection(col).doc(String(id)).update({
+          ['reactions.' + me]: remove ? firebase.firestore.FieldValue.delete() : emoji
+        });
+      } catch (err) {
+        console.error('reaction error', err);
+        showToast('Could not save your reaction. Check your connection.');
+      }
+    }
+
+    function openReactSheet(col, id) {
+      if (id == null) return;
+      const me = currentUser();
+      if (!me) { showWhoOverlay(); return; }
+      sheetReact = { col, id };
+      const item = itemOf(col, id);
+      const mine = item && item.reactions ? item.reactions[me] : null;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">React 💕</p>
+        <div class="grid grid-cols-6 gap-2 mb-4">
+          ${REACTIONS.map(e => `<button type="button" class="react-pick ${mine === e ? 'sel' : ''}" onclick="pickReaction('${e}')">${e}</button>`).join('')}
+        </div>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    function pickReaction(emoji) {
+      const t = sheetReact;
+      closeSheet();
+      if (t) setReaction(t.col, t.id, emoji);
+    }
+
+    // =====================================================================
+    // Our List: date ideas + bucket list
+    // =====================================================================
+    let bucket = [];
+    let bucketLoaded = false;
+    let bucketError = false;
+    let bucketFilter = 'all';          // all | date | bucket | done
+    let newItemType = 'date';
+    let sheetItemId = null;
+    let pickTimer = null;
+    let pickedId = null;
+
+    const SUGGESTIONS = [
+      { t: 'Picnic in the park 🧺', type: 'date' },
+      { t: 'Cook a new recipe together 🍝', type: 'date' },
+      { t: 'Movie night with snacks 🎬', type: 'date' },
+      { t: 'Sunset walk 🌅', type: 'date' },
+      { t: 'Travel somewhere new together ✈️', type: 'bucket' },
+      { t: 'Watch the sunrise together 🌄', type: 'bucket' }
+    ];
+
+    db.collection('bucket').orderBy('id', 'desc').onSnapshot(snapshot => {
+      bucket = snapshot.docs.map(doc => doc.data());
+      bucketLoaded = true;
+      bucketError = false;
+      renderBucket();
+    }, err => {
+      console.error('list listener error', err);
+      bucketLoaded = true;
+      bucketError = true;
+      renderBucket();
+    });
+
+    function setNewItemType(type) {
+      newItemType = type;
+      document.getElementById('type-date').classList.toggle('sel', type === 'date');
+      document.getElementById('type-bucket').classList.toggle('sel', type === 'bucket');
+    }
+
+    function setBucketFilter(f) {
+      bucketFilter = f;
+      renderBucket();
+    }
+
+    async function addBucketItem(textOverride, typeOverride) {
+      const input = document.getElementById('bucket-text');
+      const text = String(textOverride || input.value || '').trim();
+      if (!text) { showToast('Write an idea first 💭'); return; }
+      const me = currentUser();
+      if (!me) { showWhoOverlay(); return; }
+      const type = typeOverride || newItemType;
+      const item = {
+        id: Date.now(),
+        text: text,
+        type: type,
+        done: false,
+        doneBy: '',
+        doneAt: 0,
+        addedBy: me,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      };
+      try {
+        await db.collection('bucket').doc(String(item.id)).set(item);
+        if (!textOverride) input.value = '';
+        showToast(type === 'date' ? 'Date idea added 🌹' : 'Added to your bucket list ✨');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    function addSuggestion(i) {
+      const sg = SUGGESTIONS[i];
+      if (sg) addBucketItem(sg.t, sg.type);
+    }
+
+    async function toggleBucket(id) {
+      const it = bucket.find(x => String(x.id) === String(id));
+      if (!it) return;
+      const me = currentUser();
+      if (!me) { showWhoOverlay(); return; }
+      const nowDone = !it.done;
+      try {
+        await db.collection('bucket').doc(String(id)).update({
+          done: nowDone,
+          doneBy: nowDone ? me : '',
+          doneAt: nowDone ? Date.now() : 0
+        });
+        if (nowDone) showToast('Ticked off together 🎉');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    // ----- menu / edit / delete -----
+    function openBucketMenu(id) {
+      sheetItemId = id;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openBucketEditSheet()">✏️ Edit</button>
+        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openBucketDeleteSheet()">🗑️ Delete</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    function openBucketEditSheet() {
+      const it = bucket.find(x => String(x.id) === String(sheetItemId));
+      if (!it) { closeSheet(); return; }
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Edit idea ✏️</p>
+        <textarea id="edit-bucket-text" rows="3" maxlength="140" style="font-size:16px"
+                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveBucketEdit()">Save 💕</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+      document.getElementById('edit-bucket-text').value = it.text || '';
+    }
+
+    async function saveBucketEdit() {
+      const id = sheetItemId;
+      const value = document.getElementById('edit-bucket-text').value.trim();
+      if (!value) { showToast('The idea can\'t be empty'); return; }
+      try {
+        await db.collection('bucket').doc(String(id)).update({ text: value });
+        closeSheet();
+        showToast('Updated 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    function openBucketDeleteSheet() {
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="text-4xl text-center mb-1">🥺</p>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
+        <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmBucketDelete()">Yes, delete it</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+      `);
+    }
+
+    async function confirmBucketDelete() {
+      const id = sheetItemId;
+      try {
+        await db.collection('bucket').doc(String(id)).delete();
+        closeSheet();
+        showToast('Removed from the list');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not delete. Check your connection.');
+      }
+    }
+
+    // ----- pick a date idea for us -----
+    function pickDateIdea() {
+      clearInterval(pickTimer);
+      const dice = document.getElementById('pick-dice');
+      if (dice) { dice.classList.remove('dice-roll'); void dice.offsetWidth; dice.classList.add('dice-roll'); }
+
+      const pool = bucket.filter(x => x.type === 'date' && !x.done);
+      if (!pool.length) {
+        showToast(bucket.some(x => x.type === 'date') ? 'All date ideas are done! Add new ones 💕' : 'Add a date idea first 🌹');
+        return;
+      }
+      let pick = pool[0];
+      if (pool.length > 1) {
+        do { pick = pool[Math.floor(Math.random() * pool.length)]; } while (String(pick.id) === String(pickedId));
+      }
+      pickedId = pick.id;
+
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">How about…</p>
+        <p id="pick-text" class="pick-text my-3">🎲</p>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="markPickedDone()">We did it! ✓</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="pickDateIdea()">🎲 Another one</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+      `);
+
+      let n = 0;
+      pickTimer = setInterval(() => {
+        const el = document.getElementById('pick-text');
+        if (!el) { clearInterval(pickTimer); return; }
+        n++;
+        if (n < 11) {
+          el.textContent = pool[Math.floor(Math.random() * pool.length)].text;
+          el.style.opacity = '.55';
+        } else {
+          clearInterval(pickTimer);
+          el.textContent = pick.text;
+          el.style.opacity = '1';
+          el.classList.add('note-pop');
+        }
+      }, 90);
+    }
+
+    function markPickedDone() {
+      const id = pickedId;
+      closeSheet();
+      const it = bucket.find(x => String(x.id) === String(id));
+      if (it && !it.done) toggleBucket(id);
+    }
+
+    // ----- drawing the list -----
+    function sortedBucket(list) {
+      return list.slice().sort((a, b) => {
+        if (!!a.done !== !!b.done) return a.done ? 1 : -1;                       // open items first
+        if (a.done) return (b.doneAt || 0) - (a.doneAt || 0);                    // newest ticked first
+        return Number(b.id) - Number(a.id);                                      // newest idea first
+      });
+    }
+
+    function bucketRowHtml(it) {
+      const isDate = it.type === 'date';
+      const typeLabel = isDate ? '🌹 Date idea' : '✨ Bucket list';
+      let meta = typeLabel;
+      if (it.done) {
+        const when = it.doneAt ? new Date(Number(it.doneAt)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        meta += ` · ✓ ${escapeHtml(it.doneBy || '')}${when ? ' · ' + when : ''}`;
+      } else if (it.addedBy) {
+        meta += ` · added by ${escapeHtml(it.addedBy)}`;
+      }
+      return `
+        <div class="todo-row ${it.done ? 'done' : ''}" onclick="toggleBucket(${Number(it.id)})">
+          <span class="todo-check ${it.done ? 'on' : ''}">${it.done ? '<i class="fas fa-check"></i>' : ''}</span>
+          <div class="flex-1" style="min-width:0">
+            <p class="todo-text text-sm font-semibold text-slate-700 safe-text">${escapeHtml(it.text)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${meta}</p>
+          </div>
+          <button type="button" class="mini-btn plain" onclick="event.stopPropagation(); openBucketMenu(${Number(it.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
+        </div>
+      `;
+    }
+
+    function renderBucket() {
+      const listEl = document.getElementById('bucket-list');
+      if (!listEl) return;
+      const progEl = document.getElementById('bucket-progress');
+      const filtEl = document.getElementById('bucket-filters');
+
+      if (bucketError) {
+        progEl.innerHTML = '';
+        filtEl.innerHTML = '';
+        listEl.innerHTML = `
+          <div class="text-center py-8 px-5 bg-white/80 rounded-3xl border border-rose-100">
+            <p class="text-4xl mb-2">🔒</p>
+            <p class="text-sm font-semibold text-slate-600">The list can't be reached yet</p>
+            <p class="text-[11px] text-slate-400 mt-1">In Firebase → Firestore → Rules, allow the collection <b>bucket</b> the same way as <b>photos</b> and <b>journal</b>.</p>
+          </div>`;
+        return;
+      }
+      if (!bucketLoaded) {
+        progEl.innerHTML = '';
+        filtEl.innerHTML = '';
+        listEl.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Loading… 💕</div>';
+        return;
+      }
+
+      const total = bucket.length;
+      const doneCount = bucket.filter(x => x.done).length;
+
+      if (total === 0) {
+        progEl.innerHTML = '';
+        filtEl.innerHTML = '';
+        listEl.innerHTML = `
+          <div class="text-center py-8 px-4 rounded-3xl border-2 border-dashed border-rose-200 bg-white/70">
+            <p class="text-5xl mb-2">✨</p>
+            <p class="font-cursive text-2xl text-rose-500">Your list is empty</p>
+            <p class="text-[11px] text-slate-400 mt-1 mb-4">Add your own above, or start with one of these</p>
+            <div class="flex flex-col gap-2 items-stretch">
+              ${SUGGESTIONS.map((sg, i) => `<button type="button" class="suggest-chip" onclick="addSuggestion(${i})">+ ${escapeHtml(sg.t)}</button>`).join('')}
+            </div>
+          </div>`;
+        return;
+      }
+
+      const counts = {
+        all: total,
+        date: bucket.filter(x => x.type === 'date').length,
+        bucket: bucket.filter(x => x.type === 'bucket').length,
+        done: doneCount
+      };
+      filtEl.innerHTML = [['all', 'All'], ['date', '🌹 Dates'], ['bucket', '✨ Bucket'], ['done', '✅ Done']]
+        .map(([k, label]) => `<button type="button" class="filter-pill ${bucketFilter === k ? 'sel' : ''}" onclick="setBucketFilter('${k}')">${label} · ${counts[k]}</button>`).join('');
+
+      const pct = Math.round((doneCount / total) * 100);
+      progEl.innerHTML = `
+        <div class="px-1">
+          <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-1">
+            <span>${doneCount} of ${total} done ${doneCount === total ? '🎉' : ''}</span><span>${pct}%</span>
+          </div>
+          <div class="h-2 rounded-full bg-rose-100 overflow-hidden">
+            <div class="h-full rounded-full" style="width:${pct}%; background:linear-gradient(90deg,#fb7185,#a78bfa); transition:width .4s ease;"></div>
+          </div>
+        </div>`;
+
+      let list = bucket;
+      if (bucketFilter === 'date') list = bucket.filter(x => x.type === 'date');
+      else if (bucketFilter === 'bucket') list = bucket.filter(x => x.type === 'bucket');
+      else if (bucketFilter === 'done') list = bucket.filter(x => x.done);
+
+      listEl.innerHTML = list.length
+        ? sortedBucket(list).map(bucketRowHtml).join('')
+        : '<div class="text-center py-8 text-slate-400 text-sm">Nothing here yet 💭</div>';
+    }
+
+    // =====================================================================
+    // Small helpers + start-up for the new parts
+    // =====================================================================
+    function updateComposeAs() {
+      const el = document.getElementById('compose-as');
+      if (!el) return;
+      const u = currentUser();
+      el.textContent = u ? `Writing as ${personEmoji(u)} ${u}` : 'Write something sweet for each other';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      updateTogether();
+      renderOnThisDay();
+      renderBucket();
+      updateComposeAs();
+      renderSelected();
+      setInterval(updateTogether, 60000);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) { updateTogether(); renderOnThisDay(); }
+      });
     });
   </script>
 </body>
