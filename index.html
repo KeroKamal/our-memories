@@ -2349,7 +2349,7 @@
       }
     }
 
-    function openPassScreen(mode, name) {
+    function openPassScreen(mode, name, noFocus) {
       passState = { mode, name };
       const creating = mode === 'create';
       document.getElementById('pass-emoji').textContent = name === 'Kero' ? '🐻' : '🦜';
@@ -2368,7 +2368,10 @@
       document.getElementById('pass-back').textContent = `Not ${name}? Switch person`;
       setPassError('');
       document.getElementById('pass-overlay').classList.add('open');
-      setTimeout(() => p1.focus(), 150);
+      // iPhone: focusing without a tap leaves the box "focused" but the keyboard never opens, and a later tap does nothing.
+      // So at app launch we don't auto-focus; the person taps the box themselves.
+      if (noFocus) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+      else setTimeout(() => p1.focus(), 150);
     }
 
     function closePassScreen() {
@@ -2524,11 +2527,11 @@
       appUnlocked = false;
       const who = deviceUser();
       if (!who) { showWhoOverlay(true); return; }
-      openPassScreen('enter', who);              // shown right away, so the app is never visible first
+      openPassScreen('enter', who, true);        // shown right away, so the app is never visible first
       fetchPasswords().then(pws => {
         // first time for this person and no password yet: switch to "create password"
         if (!appUnlocked && passState.mode === 'enter' && passState.name === who && pws[who] === undefined) {
-          openPassScreen('create', who);
+          openPassScreen('create', who, true);
         }
       }).catch(() => {});
     }
