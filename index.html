@@ -171,6 +171,64 @@
       #modal-caption-box { max-height: 28dvh; }
       #modal-image-container { margin: 2px 0; }
     }
+
+    /* ---------- Journal (cute chat-style notes) ---------- */
+    .journal-hearts { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+    .journal-hearts span { position: absolute; bottom: -40px; opacity: 0; animation: floatHeart linear infinite; }
+    @keyframes floatHeart {
+      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+      10%  { opacity: .35; }
+      50%  { transform: translateY(-55vh) translateX(14px) rotate(10deg); }
+      90%  { opacity: .25; }
+      100% { transform: translateY(-115vh) translateX(-10px) rotate(-8deg); opacity: 0; }
+    }
+
+    .who-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px; border-radius: 16px; border: 2px solid #fecdd3;
+      background: #fff; color: #64748b; font-weight: 700; font-size: 13px;
+      transition: all .15s ease;
+    }
+    .who-btn:active { transform: scale(.96); }
+    .who-btn.sel-kero { background: #f43f5e; border-color: #f43f5e; color: #fff; box-shadow: 0 4px 10px rgba(244,63,94,.3); }
+    .who-btn.sel-tota { background: #a78bfa; border-color: #a78bfa; color: #fff; box-shadow: 0 4px 10px rgba(167,139,250,.35); }
+
+    .mood-btn {
+      width: 44px; height: 44px; border-radius: 9999px; background: #fff;
+      border: 2px solid transparent; font-size: 22px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s ease;
+    }
+    .mood-btn:active { transform: scale(.92); }
+    .mood-btn.sel { border-color: #fb7185; background: #ffe4e6; transform: scale(1.12); }
+
+    .note-row { display: flex; }
+    .note-row.right { justify-content: flex-end; }
+    .note-bubble {
+      max-width: 86%; min-width: 0; padding: 12px 14px; border-radius: 22px;
+      box-shadow: 0 2px 8px rgba(244,63,94,.08);
+    }
+    .note-kero  { background: linear-gradient(135deg, #ffe4e6, #fecdd3); border-bottom-right-radius: 6px; }
+    .note-tota  { background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-bottom-left-radius: 6px; }
+    .note-other { background: linear-gradient(135deg, #ffedd5, #fed7aa); border-bottom-left-radius: 6px; }
+    .note-pop { animation: notePop .4s cubic-bezier(.2, 1.4, .4, 1); }
+    @keyframes notePop {
+      from { opacity: 0; transform: scale(.85) translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .heart-btn {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 1;
+      padding: 5px 9px; border-radius: 9999px; background: rgba(255,255,255,.7);
+      transition: transform .15s ease, background .15s ease;
+    }
+    .heart-btn:active { transform: scale(1.3); }
+    .heart-btn.liked { background: rgba(255,255,255,.95); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .journal-hearts { display: none; }
+      .note-pop { animation: none; }
+    }
   </style>
 </head>
 <body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
@@ -249,21 +307,57 @@
 
     <!-- SCREEN 2: JOURNAL -->
     <section id="screen-journal" class="space-y-4 hidden">
-      <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-3">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Journal Entry</h3>
-        <input type="text" id="journal-author" placeholder="Your Name (Kero or Tota)"
-               style="font-size:16px"
-               class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50">
+
+      <!-- Compose card -->
+      <div class="relative z-10 rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4"
+           style="background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);">
+        <div class="text-center">
+          <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Dear love 💌</h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Write something sweet for each other</p>
+        </div>
+
+        <div class="space-y-1.5">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Who's writing?</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="who-kero" type="button" onclick="selectAuthor('Kero')" class="who-btn"><span class="text-lg">🐻</span> Kero</button>
+            <button id="who-tota" type="button" onclick="selectAuthor('Tota')" class="who-btn"><span class="text-lg">🦜</span> Tota</button>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">How are you feeling?</p>
+          <div class="flex justify-between">
+            <button type="button" class="mood-btn" data-mood="😍" onclick="selectMood('😍')">😍</button>
+            <button type="button" class="mood-btn" data-mood="🥰" onclick="selectMood('🥰')">🥰</button>
+            <button type="button" class="mood-btn" data-mood="😴" onclick="selectMood('😴')">😴</button>
+            <button type="button" class="mood-btn" data-mood="😢" onclick="selectMood('😢')">😢</button>
+            <button type="button" class="mood-btn" data-mood="🤗" onclick="selectMood('🤗')">🤗</button>
+          </div>
+        </div>
+
         <textarea id="journal-text" rows="3" placeholder="Write thoughts or notes to each other..."
                   style="font-size:16px"
-                  class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-400 bg-slate-50"></textarea>
-        <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition">
-          Post Journal Note
+                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80"></textarea>
+
+        <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition">
+          Send 💌
         </button>
       </div>
 
-      <div id="journal-feed" class="space-y-3">
+      <div id="journal-feed" class="relative z-10 space-y-3">
         <!-- Dynamically Populated -->
+      </div>
+
+      <!-- Floating hearts (decoration only) -->
+      <div class="journal-hearts" aria-hidden="true">
+        <span style="left: 6%;  font-size: 18px; animation-duration: 15s; animation-delay: 0s;">💗</span>
+        <span style="left: 20%; font-size: 26px; animation-duration: 19s; animation-delay: 4s;">💕</span>
+        <span style="left: 34%; font-size: 16px; animation-duration: 14s; animation-delay: 8s;">🩷</span>
+        <span style="left: 48%; font-size: 22px; animation-duration: 18s; animation-delay: 2s;">💗</span>
+        <span style="left: 60%; font-size: 28px; animation-duration: 21s; animation-delay: 10s;">💕</span>
+        <span style="left: 72%; font-size: 17px; animation-duration: 16s; animation-delay: 6s;">🩷</span>
+        <span style="left: 84%; font-size: 24px; animation-duration: 20s; animation-delay: 1s;">💗</span>
+        <span style="left: 93%; font-size: 15px; animation-duration: 13s; animation-delay: 9s;">💕</span>
       </div>
     </section>
 
@@ -705,10 +799,105 @@
       }
     }
 
+    // ---------- Journal: author, mood, hearts ----------
+    const JOURNAL_AUTHOR_KEY = 'journalAuthor';
+    const JOURNAL_LIKED_KEY = 'journalLikedNotes';
+    let journalAuthor = null;          // 'Kero' | 'Tota' (remembered on this phone)
+    let journalMood = null;
+    let journalLiked = new Set();      // ids of notes this phone has hearted
+    let renderedJournalIds = new Set();
+    let journalFirstRender = true;
+
+    function storageGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function storageSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+
+    function initJournalUi() {
+      const saved = storageGet(JOURNAL_AUTHOR_KEY);
+      if (saved === 'Kero' || saved === 'Tota') journalAuthor = saved;
+      try {
+        const likedRaw = storageGet(JOURNAL_LIKED_KEY);
+        if (likedRaw) journalLiked = new Set(JSON.parse(likedRaw).map(String));
+      } catch (e) {
+        journalLiked = new Set();
+      }
+      updateAuthorButtons();
+      updateMoodButtons();
+      renderJournal();
+    }
+    document.addEventListener('DOMContentLoaded', initJournalUi);
+
+    function updateAuthorButtons() {
+      document.getElementById('who-kero').classList.toggle('sel-kero', journalAuthor === 'Kero');
+      document.getElementById('who-tota').classList.toggle('sel-tota', journalAuthor === 'Tota');
+    }
+
+    function selectAuthor(name) {
+      journalAuthor = name;
+      storageSet(JOURNAL_AUTHOR_KEY, name);
+      updateAuthorButtons();
+    }
+
+    function updateMoodButtons() {
+      document.querySelectorAll('.mood-btn').forEach(b => {
+        b.classList.toggle('sel', b.dataset.mood === journalMood);
+      });
+    }
+
+    function selectMood(mood) {
+      journalMood = (journalMood === mood) ? null : mood; // tap again to unselect
+      updateMoodButtons();
+    }
+
+    function authorKind(name) {
+      const n = String(name || '').toLowerCase();
+      const k = n.includes('kero');
+      const t = n.includes('tota');
+      if (k && !t) return 'kero';
+      if (t && !k) return 'tota';
+      return 'other';
+    }
+
+    // "Today · 1:19 AM", "Yesterday · 9:40 PM", or "Oct 29, 2026 · 6:05 PM"
+    function formatNoteTime(id, fallbackDate) {
+      const d = new Date(Number(id));
+      if (isNaN(d.getTime())) return fallbackDate || '';
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+      const diffDays = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000);
+      if (diffDays === 0) return 'Today · ' + time;
+      if (diffDays === 1) return 'Yesterday · ' + time;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + time;
+    }
+
+    async function toggleHeart(id) {
+      const key = String(id);
+      const wasLiked = journalLiked.has(key);
+
+      // update the screen right away
+      if (wasLiked) journalLiked.delete(key); else journalLiked.add(key);
+      storageSet(JOURNAL_LIKED_KEY, JSON.stringify(Array.from(journalLiked)));
+      renderJournal();
+
+      try {
+        await db.collection('journal').doc(key).update({
+          hearts: firebase.firestore.FieldValue.increment(wasLiked ? -1 : 1)
+        });
+      } catch (err) {
+        console.error('heart error', err);
+        // undo if saving failed
+        if (wasLiked) journalLiked.add(key); else journalLiked.delete(key);
+        storageSet(JOURNAL_LIKED_KEY, JSON.stringify(Array.from(journalLiked)));
+        renderJournal();
+      }
+    }
+
     async function addJournalEntry() {
-      const authorInput = document.getElementById('journal-author');
       const textInput = document.getElementById('journal-text');
 
+      if (!journalAuthor) {
+        alert('Please choose Kero or Tota first 💕');
+        return;
+      }
       if (!textInput.value.trim()) {
         alert('Please write something in the journal!');
         return;
@@ -716,14 +905,18 @@
 
       const newEntry = {
         id: Date.now(),
-        author: authorInput.value.trim() || 'Kero / Tota',
+        author: journalAuthor,
         text: textInput.value.trim(),
+        mood: journalMood || '',
+        hearts: 0,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       };
 
       try {
         await db.collection('journal').doc(newEntry.id.toString()).set(newEntry);
         textInput.value = '';
+        journalMood = null;
+        updateMoodButtons();
       } catch (err) {
         alert('Error posting journal note.');
       }
@@ -797,20 +990,49 @@
 
     function renderJournal() {
       const journalFeed = document.getElementById('journal-feed');
-      journalFeed.innerHTML = journal.length === 0 ? `
-        <div class="text-center py-8 bg-white rounded-2xl border border-rose-100 p-4">
-          <p class="text-2xl mb-1">📖</p>
-          <p class="text-xs font-semibold text-slate-500">No journal notes yet</p>
-        </div>
-      ` : journal.map(j => `
-        <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm space-y-1">
-          <div class="flex justify-between items-center">
-            <span class="text-xs font-bold text-rose-600">${escapeHtml(j.author)}</span>
-            <span class="text-[10px] text-slate-400">${escapeHtml(j.date)}</span>
+
+      if (journal.length === 0) {
+        journalFeed.innerHTML = `
+          <div class="text-center py-10 bg-white/80 rounded-3xl border border-rose-100 p-6">
+            <p class="text-5xl mb-2">💖</p>
+            <p class="font-cursive text-2xl text-rose-500">Write your first love note 💌</p>
           </div>
-          <p class="text-xs text-slate-700 leading-relaxed safe-text">${escapeHtml(j.text)}</p>
-        </div>
-      `).join('');
+        `;
+        journalFirstRender = false;
+        return;
+      }
+
+      journalFeed.innerHTML = journal.map(j => {
+        const kind = authorKind(j.author);
+        const key = String(j.id);
+        const isRight = kind === 'kero';
+        const isNew = !journalFirstRender && !renderedJournalIds.has(key);
+        const liked = journalLiked.has(key);
+        const hearts = Math.max(0, Number(j.hearts) || 0);
+        const icon = kind === 'kero' ? '🐻' : kind === 'tota' ? '🦜' : '💕';
+        const nameColor = kind === 'kero' ? '#e11d48' : kind === 'tota' ? '#7c3aed' : '#c2410c';
+
+        return `
+          <div class="note-row ${isRight ? 'right' : ''}">
+            <div class="note-bubble note-${kind} ${isNew ? 'note-pop' : ''}">
+              <div class="flex items-center justify-between gap-3 mb-1">
+                <span class="text-[11px] font-bold" style="color:${nameColor}">${icon} ${escapeHtml(j.author)}</span>
+                ${j.mood ? `<span class="text-lg leading-none">${escapeHtml(j.mood)}</span>` : ''}
+              </div>
+              <p class="font-cursive text-xl leading-snug text-slate-700 safe-text">${escapeHtml(j.text)}</p>
+              <div class="flex items-center justify-between gap-3 mt-2">
+                <span class="text-[10px] text-slate-500">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
+                <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
+                  <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      journal.forEach(j => renderedJournalIds.add(String(j.id)));
+      journalFirstRender = false;
     }
   </script>
 </body>
