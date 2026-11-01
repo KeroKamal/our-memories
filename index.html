@@ -465,6 +465,35 @@
     .suggest-chip { padding: 8px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: #fff; border: 1px dashed #fda4af; color: #e11d48; text-align: left; }
     .pick-text { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 34px; line-height: 1.15; color: #e11d48; text-align: center; overflow-wrap: anywhere; min-height: 80px; display: flex; align-items: center; justify-content: center; transition: opacity .1s ease; }
 
+    /* ---------- Password screen + settings ---------- */
+    #pass-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 130;
+      background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    }
+    #pass-overlay.open { display: flex; }
+    .pw-wrap { position: relative; }
+    .pw-input {
+      width: 100%; padding: 14px 46px 14px 16px; border-radius: 16px; font-size: 16px;
+      border: 2px solid #fecdd3; background: #fff; color: #334155; outline: none;
+    }
+    .pw-input:focus { border-color: #fb7185; }
+    .pw-eye {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; font-size: 15px;
+    }
+    .pw-error { min-height: 18px; font-size: 12px; font-weight: 700; color: #e11d48; }
+    .shake { animation: shake .35s ease; }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+    .set-card { border-radius: 24px; padding: 16px; background: #fff; border: 1px solid #ffe4e6; box-shadow: 0 2px 8px rgba(244,63,94,.06); }
+    html.dark .pw-input { background: #2a2136; border-color: #4a3858; color: #ece5f3; }
+    html.dark .pw-input:focus { border-color: #fb7185; }
+    html.dark #pass-overlay { background: linear-gradient(135deg, #1a1322 0%, #201729 55%, #181326 100%); }
+    html.dark .set-card { background: #221a2c; border-color: #3a2d48; box-shadow: none; }
+    html.dark .pw-error { color: #fca5a5; }
+
     /* ---------- Dark mode ---------- */
     html.dark { color-scheme: dark; }
     html.dark body.bg-rose-50 { background-color: #16111d !important; color: #ece5f3 !important; }
@@ -584,6 +613,9 @@
       </button>
       <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn">
         <i class="fas fa-list-check"></i><span>Our List</span>
+      </button>
+      <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn">
+        <i class="fas fa-gear"></i><span>Settings</span>
       </button>
     </div>
 
@@ -748,6 +780,32 @@
       <div id="bucket-list" class="space-y-2"></div>
     </section>
 
+    <!-- SCREEN 4: SETTINGS -->
+    <section id="screen-settings" class="space-y-4 hidden">
+      <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm text-center">
+        <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Settings ⚙️</h3>
+        <p id="settings-user" class="text-sm font-semibold text-slate-600 mt-1"></p>
+      </div>
+
+      <div class="set-card space-y-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</p>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="openChangePassSheet()">🔑 Change my password</button>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showMyPassword()">👁️ Show my password</button>
+      </div>
+
+      <div class="set-card space-y-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account</p>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showWhoOverlay()">🔄 Switch person</button>
+        <button type="button" class="sheet-btn bg-red-50 text-red-600" onclick="logoutThisPhone()">🔒 Lock the app</button>
+        <p class="text-[11px] text-slate-400 text-center">The password is asked every time the app is opened.</p>
+      </div>
+
+      <div class="set-card space-y-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Look</p>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="toggleTheme()">🌙 Dark / ☀️ Light mode</button>
+      </div>
+    </section>
+
   </main>
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
@@ -818,6 +876,26 @@
       <button type="button" class="who-big" data-who="Kero" onclick="chooseUser('Kero')"><span class="emoji">🐻</span> Kero</button>
       <button type="button" class="who-big" data-who="Tota" onclick="chooseUser('Tota')"><span class="emoji">🦜</span> Tota</button>
       <button id="who-cancel" type="button" class="hidden text-xs text-slate-400 pt-2 underline" onclick="hideWhoOverlay()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Password screen (create on first time, enter when logging in from a new phone) -->
+  <div id="pass-overlay">
+    <div id="pass-box" class="w-full max-w-xs space-y-3 text-center">
+      <p id="pass-emoji" class="text-6xl">🔐</p>
+      <h2 id="pass-title" class="font-cursive text-4xl font-bold text-rose-600 leading-tight"></h2>
+      <p id="pass-sub" class="text-xs text-slate-500"></p>
+      <div class="pw-wrap">
+        <input id="pass-1" type="password" class="pw-input" autocomplete="off" onkeydown="if(event.key==='Enter') passEnter(1)">
+        <button type="button" class="pw-eye" onclick="togglePw('pass-1', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+      </div>
+      <div id="pass-2-wrap" class="pw-wrap">
+        <input id="pass-2" type="password" class="pw-input" placeholder="Re-enter password" autocomplete="off" onkeydown="if(event.key==='Enter') passEnter(2)">
+        <button type="button" class="pw-eye" onclick="togglePw('pass-2', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+      </div>
+      <p id="pass-error" class="pw-error"></p>
+      <button id="pass-submit" type="button" class="sheet-btn bg-rose-500 text-white" onclick="submitPass()">Continue 💕</button>
+      <button type="button" class="text-xs text-slate-400 pt-1 underline" onclick="closePassScreen()">Back</button>
     </div>
   </div>
 
@@ -1269,7 +1347,7 @@
     }, err => console.error('journal listener error', err));
 
     function switchScreen(screen) {
-      ['photos', 'journal', 'list'].forEach(name => {
+      ['photos', 'journal', 'list', 'settings'].forEach(name => {
         document.getElementById('screen-' + name).classList.toggle('hidden', name !== screen);
         document.getElementById('screen-' + name + '-btn').classList.toggle('active', name === screen);
       });
@@ -2038,7 +2116,131 @@
       document.getElementById('who-overlay').classList.remove('open');
     }
 
-    function chooseUser(name) {
+    // ---------- Passwords ----------
+    // Stored in Firestore: collection "settings", document "passwords" -> { Kero: "...", Tota: "..." }
+    // Once a person has entered their password on this phone, it is remembered and not asked again.
+    const UNLOCKED_KEY = 'unlockedUsers';
+    const MIN_PASSWORD = 4;
+    let passState = { mode: null, name: null };
+    let passBusy = false;
+
+    function getUnlocked() {
+      try { const l = JSON.parse(storageGet(UNLOCKED_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+    }
+    function markUnlocked(name) {
+      const l = getUnlocked();
+      if (l.indexOf(name) === -1) l.push(name);
+      storageSet(UNLOCKED_KEY, JSON.stringify(l));
+    }
+
+    const pwRef = () => db.collection('settings').doc('passwords');
+
+    // Always read from the server (never from an empty cache), so a password can't be overwritten by mistake
+    async function fetchPasswords() {
+      const snap = await pwRef().get({ source: 'server' });
+      return snap.exists ? (snap.data() || {}) : {};
+    }
+
+    function passErrorToast(err) {
+      console.error('password error', err);
+      if (err && err.code === 'permission-denied') {
+        showToast('Firebase rules: please allow the collection "settings" 🔒');
+      } else {
+        showToast("Can't reach the server. Check your connection.");
+      }
+    }
+
+    function togglePw(id, btn) {
+      const input = document.getElementById(id);
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.innerHTML = `<i class="fas ${show ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+    }
+
+    function setPassError(msg) {
+      const el = document.getElementById('pass-error');
+      el.textContent = msg || '';
+      if (msg) {
+        const box = document.getElementById('pass-box');
+        box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+      }
+    }
+
+    function openPassScreen(mode, name) {
+      passState = { mode, name };
+      const creating = mode === 'create';
+      document.getElementById('pass-emoji').textContent = name === 'Kero' ? '🐻' : '🦜';
+      document.getElementById('pass-title').textContent = creating ? 'Create password' : 'Welcome, ' + name;
+      document.getElementById('pass-sub').textContent = creating
+        ? `Choose a password for ${name}.`
+        : `Enter ${name}'s password`;
+      const p1 = document.getElementById('pass-1');
+      const p2 = document.getElementById('pass-2');
+      p1.value = ''; p2.value = '';
+      p1.type = 'password'; p2.type = 'password';
+      document.querySelectorAll('#pass-box .pw-eye').forEach(b => b.innerHTML = '<i class="fas fa-eye"></i>');
+      p1.placeholder = creating ? 'New password' : 'Password';
+      document.getElementById('pass-2-wrap').classList.toggle('hidden', !creating);
+      document.getElementById('pass-submit').textContent = creating ? 'Save password 💕' : 'Enter 💕';
+      setPassError('');
+      document.getElementById('pass-overlay').classList.add('open');
+      setTimeout(() => p1.focus(), 150);
+    }
+
+    function closePassScreen() {
+      document.getElementById('pass-overlay').classList.remove('open');
+      passState = { mode: null, name: null };
+    }
+
+    function passEnter(field) {
+      if (field === 1 && passState.mode === 'create') document.getElementById('pass-2').focus();
+      else submitPass();
+    }
+
+    async function submitPass() {
+      if (passBusy || !passState.name) return;
+      const name = passState.name;
+      const p1 = document.getElementById('pass-1').value;
+      const p2 = document.getElementById('pass-2').value;
+      passBusy = true;
+      try {
+        if (passState.mode === 'create') {
+          if (p1.length < MIN_PASSWORD) { setPassError(`At least ${MIN_PASSWORD} characters please`); return; }
+          if (p1 !== p2) { setPassError("The two passwords don't match"); return; }
+          // someone may have created it a moment ago: check again before saving
+          const pws = await fetchPasswords();
+          if (pws[name]) { openPassScreen('enter', name); setPassError(`${name} already has a password. Enter it.`); return; }
+          await pwRef().set({ [name]: p1 }, { merge: true });
+          markUnlocked(name);
+          finishLogin(name);
+        } else {
+          if (!p1) { setPassError('Enter the password'); return; }
+          const pws = await fetchPasswords();
+          if (pws[name] === undefined) { openPassScreen('create', name); return; }
+          if (pws[name] !== p1) { setPassError('Wrong password 🥺'); return; }
+          markUnlocked(name);
+          finishLogin(name);
+        }
+      } catch (err) {
+        passErrorToast(err);
+      } finally {
+        passBusy = false;
+      }
+    }
+
+    // The gate: remembered phones go straight in, otherwise create / enter a password
+    async function chooseUser(name) {
+      // the password is asked every time the app is opened (create it the very first time)
+      showToast('One moment… 💕');
+      try {
+        const pws = await fetchPasswords();
+        openPassScreen(pws[name] ? 'enter' : 'create', name);
+      } catch (err) {
+        passErrorToast(err);
+      }
+    }
+
+    function finishLogin(name) {
       journalAuthor = name;
       storageSet(JOURNAL_AUTHOR_KEY, name);
       updateAuthorButtons();
@@ -2048,7 +2250,87 @@
       renderPhotos();
       renderJournal();
       updateViewerActions();
+      updateSettingsUi();
+      closePassScreen();
       hideWhoOverlay();
+    }
+
+    // ---------- Settings ----------
+    function updateSettingsUi() {
+      const el = document.getElementById('settings-user');
+      const u = currentUser();
+      if (el) el.textContent = u ? `Signed in as ${personEmoji(u)} ${u}` : '';
+    }
+
+    function openChangePassSheet() {
+      const u = currentUser();
+      if (!u) { showWhoOverlay(); return; }
+      const field = (id, ph) => `
+        <div class="pw-wrap mb-3">
+          <input id="${id}" type="password" class="pw-input" placeholder="${ph}" autocomplete="off">
+          <button type="button" class="pw-eye" onclick="togglePw('${id}', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+        </div>`;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Change password 🔑</p>
+        ${field('cp-old', 'Current password')}
+        ${field('cp-new', 'New password')}
+        ${field('cp-new2', 'Re-enter new password')}
+        <p id="cp-error" class="pw-error text-center mb-2"></p>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveNewPassword()">Save 💕</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    async function saveNewPassword() {
+      const u = currentUser();
+      if (!u) return;
+      const err = (m) => { document.getElementById('cp-error').textContent = m; };
+      const oldP = document.getElementById('cp-old').value;
+      const n1 = document.getElementById('cp-new').value;
+      const n2 = document.getElementById('cp-new2').value;
+      if (n1.length < MIN_PASSWORD) { err(`New password: at least ${MIN_PASSWORD} characters`); return; }
+      if (n1 !== n2) { err("The new passwords don't match"); return; }
+      try {
+        const pws = await fetchPasswords();
+        if (pws[u] !== undefined && pws[u] !== oldP) { err('Current password is wrong 🥺'); return; }
+        await pwRef().set({ [u]: n1 }, { merge: true });
+        markUnlocked(u);
+        closeSheet();
+        showToast('Password changed 🔑💕');
+      } catch (e) {
+        passErrorToast(e);
+      }
+    }
+
+    async function showMyPassword() {
+      const u = currentUser();
+      if (!u) { showWhoOverlay(); return; }
+      try {
+        const pws = await fetchPasswords();
+        openSheet(`
+          <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+          <p class="text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">${escapeHtml(u)}'s password</p>
+          <p class="pick-text my-3" style="font-size:28px">${escapeHtml(pws[u] || '(none yet)')}</p>
+          <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+        `);
+      } catch (e) {
+        passErrorToast(e);
+      }
+    }
+
+    function logoutThisPhone() {
+      storageSet(UNLOCKED_KEY, '[]');
+      journalAuthor = null;
+      storageSet(JOURNAL_AUTHOR_KEY, '');
+      updateAuthorButtons();
+      updateUploadAuthorButtons();
+      updateHeaderUser();
+      updateComposeAs();
+      updateSettingsUi();
+      renderPhotos();
+      renderJournal();
+      showWhoOverlay(true);
     }
 
     // Photos screen start-up (registered last so the journal has already loaded the remembered name)
@@ -2602,6 +2884,7 @@
       renderOnThisDay();
       renderBucket();
       updateComposeAs();
+      updateSettingsUi();
       renderSelected();
       setInterval(updateTogether, 60000);
       document.addEventListener('visibilitychange', () => {
