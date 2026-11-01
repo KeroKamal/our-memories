@@ -2347,6 +2347,12 @@
       if (msg) {
         const box = document.getElementById('pass-box');
         box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        // drop the animation when it ends: a leftover animated box makes iPhone ignore taps on the input
+        box.addEventListener('animationend', () => box.classList.remove('shake'), { once: true });
+        // a wrong password: empty the box and let go of it, so the next tap opens the keyboard normally
+        // (focusing it from code here does not work on iPhone because it is not a tap)
+        ['pass-1', 'pass-2'].forEach(id => { const i = document.getElementById(id); i.value = ''; i.blur(); });
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       }
     }
 
