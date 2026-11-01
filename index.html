@@ -3151,7 +3151,7 @@
           const perm = await Notification.requestPermission();
           if (perm !== 'granted') { showToast('Notifications are blocked in your settings'); return false; }
         }
-        const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+        const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js?app=' + encodeURIComponent(location.pathname));
         const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
         if (!token) return false;
         const other = name === 'Kero' ? 'Tota' : 'Kero';
