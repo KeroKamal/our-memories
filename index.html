@@ -274,6 +274,25 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ---------- "Who's here?" welcome screen ---------- */
+    #who-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 120;
+      background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 55%, #f5f3ff 100%);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    }
+    #who-overlay.open { display: flex; }
+    .who-big {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 22px; border-radius: 24px; background: #fff; border: 2px solid #fecdd3;
+      font-size: 20px; font-weight: 700; color: #475569;
+      box-shadow: 0 6px 18px rgba(244,63,94,.12);
+      transition: transform .15s ease;
+    }
+    .who-big:active { transform: scale(.96); }
+    .who-big.last { border-color: #f43f5e; background: #fff1f2; color: #e11d48; }
+    .who-big .emoji { font-size: 36px; }
+
     /* ---------- Journal (cute chat-style notes) ---------- */
     .journal-hearts { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; pointer-events: none; z-index: 0; }
     .journal-hearts span { position: absolute; bottom: -40px; opacity: 0; animation: floatHeart linear infinite; }
@@ -342,6 +361,8 @@
         <span class="text-2xl">💖</span>
         <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
+      <button id="who-chip" type="button" onclick="showWhoOverlay()" aria-label="Switch person"
+              class="hidden items-center gap-1 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full active:scale-95 transition"></button>
     </div>
   </header>
 
@@ -387,7 +408,7 @@
           <span>Choose Image</span>
         </button>
 
-        <div class="space-y-1.5">
+        <div class="space-y-1.5 hidden">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Who's adding it?</p>
           <div class="grid grid-cols-2 gap-2">
             <button id="up-who-kero" type="button" onclick="selectUploadAuthor('Kero')" class="who-btn"><span class="text-lg">🐻</span> Kero</button>
@@ -450,7 +471,7 @@
           <p class="text-[11px] text-slate-400 mt-0.5">Write something sweet for each other</p>
         </div>
 
-        <div class="space-y-1.5">
+        <div class="space-y-1.5 hidden">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Who's writing?</p>
           <div class="grid grid-cols-2 gap-2">
             <button id="who-kero" type="button" onclick="selectAuthor('Kero')" class="who-btn"><span class="text-lg">🐻</span> Kero</button>
@@ -550,6 +571,18 @@
   <!-- Bottom sheet (menu / edit / delete) -->
   <div id="sheet-overlay" onclick="if(event.target===this) closeSheet()">
     <div id="sheet-panel"></div>
+  </div>
+
+  <!-- Who's here? (asked once, remembered on this phone) -->
+  <div id="who-overlay">
+    <div class="w-full max-w-xs space-y-3 text-center">
+      <p class="text-6xl">💖</p>
+      <h2 class="font-cursive text-4xl font-bold text-rose-600 leading-tight">Who's here?</h2>
+      <p class="text-xs text-slate-400 pb-3">Used for both the journal and the gallery</p>
+      <button type="button" class="who-big" data-who="Kero" onclick="chooseUser('Kero')"><span class="emoji">🐻</span> Kero</button>
+      <button type="button" class="who-big" data-who="Tota" onclick="chooseUser('Tota')"><span class="emoji">🦜</span> Tota</button>
+      <button id="who-cancel" type="button" class="hidden text-xs text-slate-400 pt-2 underline" onclick="hideWhoOverlay()">Cancel</button>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -1609,10 +1642,47 @@
       journalFirstRender = false;
     }
 
+    // ---------- Who's using the app (chosen once, used by journal + gallery) ----------
+    function currentUser() {
+      return (journalAuthor === 'Kero' || journalAuthor === 'Tota') ? journalAuthor : null;
+    }
+
+    function updateHeaderUser() {
+      const chip = document.getElementById('who-chip');
+      const u = currentUser();
+      if (!u) { chip.classList.add('hidden'); chip.classList.remove('flex'); return; }
+      chip.classList.remove('hidden');
+      chip.classList.add('flex');
+      chip.innerHTML = `<span class="text-base leading-none">${u === 'Kero' ? '🐻' : '🦜'}</span> ${u} <span class="text-[10px] font-semibold text-rose-400">· switch</span>`;
+    }
+
+    function showWhoOverlay(atLaunch) {
+      // no Cancel when the app just opened: you pick who you are first
+      document.getElementById('who-cancel').classList.toggle('hidden', !!atLaunch || !currentUser());
+      // highlight the person who used this phone last
+      document.querySelectorAll('.who-big').forEach(b => b.classList.toggle('last', b.dataset.who === currentUser()));
+      document.getElementById('who-overlay').classList.add('open');
+    }
+
+    function hideWhoOverlay() {
+      document.getElementById('who-overlay').classList.remove('open');
+    }
+
+    function chooseUser(name) {
+      journalAuthor = name;
+      storageSet(JOURNAL_AUTHOR_KEY, name);
+      updateAuthorButtons();
+      updateUploadAuthorButtons();
+      updateHeaderUser();
+      hideWhoOverlay();
+    }
+
     // Photos screen start-up (registered last so the journal has already loaded the remembered name)
     document.addEventListener('DOMContentLoaded', () => {
       updateUploadAuthorButtons();
       renderPhotos();
+      updateHeaderUser();
+      showWhoOverlay(true); // the choose screen is always the first thing you see
     });
   </script>
 </body>
