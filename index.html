@@ -176,18 +176,12 @@
 <body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
 
   <!-- Header -->
-  <header class="app-header sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-rose-100 shadow-sm">
+  <header class="app-header sticky top-0 z-40 bg-white border-b border-rose-100 shadow-sm">
     <div class="max-w-md mx-auto flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-2xl">💖</span>
         <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
-        <span class="text-[9px] font-bold text-rose-400 bg-rose-100 px-1.5 py-0.5 rounded-full">v3 fit</span>
       </div>
-      <a href="https://drive.google.com/drive/u/1/folders/1n8zhLRUB7K_prh4PkrPHec2tXjBN9K_6" target="_blank" rel="noopener noreferrer"
-         class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-full text-xs font-semibold transition active:scale-95">
-        <i class="fab font-bold fa-google-drive text-sm text-emerald-600"></i>
-        <span>Open Drive</span>
-      </a>
     </div>
   </header>
 
@@ -224,11 +218,11 @@
         <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()"
                 class="w-full flex items-center justify-center gap-2 bg-rose-50 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-xl text-xs font-bold transition">
           <i class="fas fa-camera text-base"></i>
-          <span>Choose Image from Phone / PC</span>
+          <span>Choose Image</span>
         </button>
 
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Caption / Note under this image</label>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Notes</label>
           <!-- font-size 16px prevents iOS from auto-zooming the page when focusing the field -->
           <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..."
                     style="font-size:16px"
@@ -654,7 +648,7 @@
         const uploadBtn = document.getElementById('upload-drive-btn');
         uploadBtn.disabled = false;
         uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
-        document.getElementById('upload-btn-text').innerText = "Upload to Drive & Sync Everywhere";
+        document.getElementById('upload-btn-text').innerText = "Upload";
       };
       reader.readAsDataURL(file);
     }
@@ -677,7 +671,7 @@
       if (!selectedFileBase64 || !selectedCompressedDataUrl) return;
 
       const btnText = document.getElementById('upload-btn-text');
-      btnText.innerText = "Syncing to Cloud & Drive...";
+      btnText.innerText = "Uploading...";
 
       try {
         await fetch(APPS_SCRIPT_URL, {
@@ -703,11 +697,11 @@
 
         document.getElementById('photo-caption').value = '';
         clearSelectedFile();
-        alert('Successfully uploaded and synced across all devices! ❤');
+        alert('Successfully uploaded ❤');
       } catch (err) {
         console.error(err);
         alert('Error uploading. Please check your internet connection.');
-        btnText.innerText = "Upload to Drive & Sync Everywhere";
+        btnText.innerText = "Upload";
       }
     }
 
