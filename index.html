@@ -47,6 +47,7 @@
     }
   </script>
   <style>
+    textarea { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -1582,7 +1583,7 @@
             </span>
           </div>
           <div class="pt-3 px-1 space-y-2" style="min-width:0">
-            <p class="font-cursive text-xl leading-snug text-slate-700 safe-text caption-clamp">${escapeHtml(p.caption)}</p>
+            <p class="font-sans text-sm font-medium leading-snug text-slate-700 safe-text caption-clamp">${escapeHtml(p.caption)}</p>
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2 flex-wrap" style="min-width:0">
                 <span class="text-[10px] text-slate-400">${escapeHtml(formatPhotoDate(p))}</span>
@@ -1614,7 +1615,7 @@
               <span style="font-size:13px">${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span>${hearts}</span>` : ''}
             </button>
           </div>
-          <p class="font-cursive text-base leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1">${escapeHtml(p.caption)}</p>
+          <p class="font-sans text-xs font-medium leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1">${escapeHtml(p.caption)}</p>
           <p class="text-[10px] text-slate-400 px-0.5 mt-0.5">${escapeHtml(formatPhotoDate(p))}</p>
         </div>
       `;
@@ -1691,7 +1692,7 @@
                 <span class="text-[11px] font-bold" style="color:${nameColor}">${icon} ${escapeHtml(j.author)}</span>
                 ${j.mood ? `<span class="text-lg leading-none">${escapeHtml(j.mood)}</span>` : ''}
               </div>
-              <p class="font-cursive text-xl leading-snug text-slate-700 safe-text">${escapeHtml(j.text)}</p>
+              <p class="font-sans text-[15px] font-medium leading-relaxed text-slate-700 safe-text">${escapeHtml(j.text)}</p>
               <div class="flex items-center justify-between gap-3 mt-2">
                 <span class="text-[10px] text-slate-500">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
                 <div class="flex items-center gap-1">
