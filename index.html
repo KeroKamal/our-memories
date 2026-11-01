@@ -1355,6 +1355,8 @@ html[data-color="berry"] {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    // iPhone Home Screen apps sometimes leave Firestore requests hanging forever; this lets it switch to a connection type that works
+    try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) { console.warn('firestore settings', e); }
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylOiP_Pnprl_PoDC4_KGDYJgeFnwMuEeXbhsK7oY7FLEVPyYorlHEqAB7bky0AZhsZ/exec';
 
@@ -2704,7 +2706,9 @@ html[data-color="berry"] {
 
     // Always read from the server (never from an empty cache), so a password can't be overwritten by mistake
     async function fetchPasswords() {
-      const snap = await pwRef().get({ source: 'server' });
+      // never wait forever: if the server does not answer in 12 seconds, give up so the screen can be used again
+      const timeout = new Promise((_, reject) => setTimeout(() => reject({ code: 'timeout' }), 12000));
+      const snap = await Promise.race([pwRef().get({ source: 'server' }), timeout]);
       return snap.exists ? (snap.data() || {}) : {};
     }
 
@@ -2712,6 +2716,8 @@ html[data-color="berry"] {
       console.error('password error', err);
       if (err && err.code === 'permission-denied') {
         showToast('Firebase rules: please allow the collection "settings" 🔒');
+      } else if (err && err.code === 'timeout') {
+        showToast('The server is slow to answer. Tap Enter again 💕');
       } else {
         showToast("Can't reach the server. Check your connection.");
       }
@@ -2819,6 +2825,10 @@ html[data-color="berry"] {
       const p1 = document.getElementById('pass-1').value;
       const p2 = document.getElementById('pass-2').value;
       passBusy = true;
+      const submitBtn = document.getElementById('pass-submit');
+      const submitLabel = submitBtn.textContent;
+      submitBtn.textContent = 'Checking… 💕';
+      submitBtn.disabled = true;
       try {
         if (passState.mode === 'create') {
           if (p1.length < MIN_PASSWORD) { setPassError(`At least ${MIN_PASSWORD} characters please`); return; }
@@ -2841,6 +2851,9 @@ html[data-color="berry"] {
         passErrorToast(err);
       } finally {
         passBusy = false;
+        submitBtn.disabled = false;
+        // the screen may have been re-opened in another mode meanwhile; only restore the label if it is still ours
+        if (submitBtn.textContent === 'Checking… 💕') submitBtn.textContent = submitLabel;
       }
     }
 
@@ -2860,16 +2873,13 @@ html[data-color="berry"] {
       appUnlocked = true;
       journalAuthor = name;
       storageSet(JOURNAL_AUTHOR_KEY, name);   // this phone now belongs to this person
-      updateAuthorButtons();
-      updateUploadAuthorButtons();
-      updateHeaderUser();
-      updateComposeAs();
-      renderPhotos();
-      renderJournal();
-      updateViewerActions();
-      updateSettingsUi();
+      // the password was right: always open the app, even if refreshing one of the parts below fails
       closePassScreen();
       hideWhoOverlay();
+      [updateAuthorButtons, updateUploadAuthorButtons, updateHeaderUser, updateComposeAs,
+       renderPhotos, renderJournal, updateViewerActions, updateSettingsUi].forEach(fn => {
+        try { fn(); } catch (e) { console.error('after login:', fn.name, e); }
+      });
     }
 
     // ---------- Settings ----------
