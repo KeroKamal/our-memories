@@ -1355,8 +1355,8 @@ html[data-color="berry"] {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    // iPhone Home Screen apps sometimes leave Firestore requests hanging forever; this lets it switch to a connection type that works
-    try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) { console.warn('firestore settings', e); }
+    // iPhone Home Screen apps can leave Firestore's default connection hanging forever; long polling is the connection type that always works there
+    try { db.settings({ experimentalForceLongPolling: true, merge: true }); } catch (e) { console.warn('firestore settings', e); }
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylOiP_Pnprl_PoDC4_KGDYJgeFnwMuEeXbhsK7oY7FLEVPyYorlHEqAB7bky0AZhsZ/exec';
 
@@ -2706,14 +2706,21 @@ html[data-color="berry"] {
 
     // Always read from the server (never from an empty cache), so a password can't be overwritten by mistake
     async function fetchPasswords() {
-      // never wait forever: if the server does not answer in 12 seconds, give up so the screen can be used again
-      const timeout = new Promise((_, reject) => setTimeout(() => reject({ code: 'timeout' }), 12000));
+      // never wait forever: if the server does not answer in 8 seconds, give up so the screen can be used again
+      const timeout = new Promise((_, reject) => setTimeout(() => reject({ code: 'timeout' }), 8000));
       const snap = await Promise.race([pwRef().get({ source: 'server' }), timeout]);
       return snap.exists ? (snap.data() || {}) : {};
     }
 
     function passErrorToast(err) {
       console.error('password error', err);
+      // the toast can sit behind the password screen, so also write the problem on the screen itself
+      const pe = document.getElementById('pass-error');
+      if (pe && document.getElementById('pass-overlay').classList.contains('open')) {
+        pe.textContent = (err && err.code === 'permission-denied') ? 'Firebase rules: allow the collection "settings" 🔒'
+          : (err && err.code === 'timeout') ? 'No answer from the server. Tap Enter to try again 💕'
+          : "Can't reach the server. Check your connection.";
+      }
       if (err && err.code === 'permission-denied') {
         showToast('Firebase rules: please allow the collection "settings" 🔒');
       } else if (err && err.code === 'timeout') {
