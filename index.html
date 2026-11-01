@@ -24,7 +24,6 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -78,7 +77,7 @@
     .app-main {
       padding-left: calc(1rem + env(safe-area-inset-left));
       padding-right: calc(1rem + env(safe-area-inset-right));
-      padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(7rem + env(safe-area-inset-bottom));
     }
 
     /* Photo cards scale with the screen: max 320px, but never wider than the phone allows */
@@ -279,7 +278,7 @@
     .sheet-btn:active { transform: scale(.98); }
 
     #toast {
-      position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 100;
+      position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 100;
       transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
       transition: opacity .25s ease, transform .25s ease;
       background: rgba(30,30,40,.92); color: #fff; padding: 10px 16px; border-radius: 9999px;
@@ -365,7 +364,23 @@
       color: #64748b; transition: all .15s ease; text-align: center;
     }
     .tab-btn i { font-size: 15px; }
-    .tab-btn.active { background: #fff; color: #e11d48; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .tab-btn.active { color: #e11d48; }
+    .tab-btn.active i { transform: scale(1.18); }
+    .tab-btn i { transition: transform .15s ease; }
+    .bottom-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+      display: flex; gap: 2px; justify-content: center;
+      background: rgba(255,255,255,.96); border-top: 1px solid #ffe4e6;
+      box-shadow: 0 -2px 12px rgba(244,63,94,.08);
+      padding: 6px calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      touch-action: pan-y;
+    }
+    .bottom-nav .tab-btn { max-width: 110px; }
+    .screen-in-right { animation: screenInRight .22s ease; }
+    .screen-in-left { animation: screenInLeft .22s ease; }
+    @keyframes screenInRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+    @keyframes screenInLeft { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
 
     /* ---------- Together counter ---------- */
     .together-card {
@@ -543,7 +558,8 @@
 
     html.dark .card-grad { background: linear-gradient(135deg, #261b30 0%, #2a1f36 55%, #231c38 100%); }
     html.dark .tab-btn { color: #a99bb8; }
-    html.dark .tab-btn.active { background: #3b2a46; color: #fda4af; box-shadow: none; }
+    html.dark .tab-btn.active { color: #fda4af; }
+    html.dark .bottom-nav { background: rgba(36,26,46,.96); border-top-color: #3b2a46; box-shadow: 0 -2px 12px rgba(0,0,0,.3); }
     html.dark .together-card { background: linear-gradient(135deg, #be3a57 0%, #a1264f 45%, #6d4fc2 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }
     html.dark .otd-card { background: linear-gradient(135deg, #2c2130, #2a1f2c); border-color: #4a3550; }
     html.dark .otd-title { color: #fdba74; }
@@ -625,22 +641,6 @@
 
     <!-- On this day -->
     <div id="onthisday-card" class="otd-card hidden"></div>
-
-    <!-- Screen Switcher Tabs -->
-    <div class="flex gap-1 bg-white/70 p-1 rounded-xl border border-rose-100 shadow-sm">
-      <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active">
-        <i class="fas fa-images"></i><span>Memories Gallery</span>
-      </button>
-      <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn">
-        <i class="fas fa-book-open"></i><span>Shared Journal</span>
-      </button>
-      <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn">
-        <i class="fas fa-list-check"></i><span>Our List</span>
-      </button>
-      <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn">
-        <i class="fas fa-gear"></i><span>Settings</span>
-      </button>
-    </div>
 
     <!-- SCREEN 1: MEMORIES / PHOTO GALLERY -->
     <section id="screen-photos" class="space-y-4">
@@ -829,7 +829,7 @@
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account</p>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showWhoOverlay()">🔄 Switch person</button>
         <button type="button" class="sheet-btn bg-red-50 text-red-600" onclick="logoutThisPhone()">🔒 Lock the app</button>
-        <p class="text-[11px] text-slate-400 text-center">The password is asked every time the app is opened.</p>
+        <p class="text-[11px] text-slate-400 text-center">This phone remembers who you are. Only your password is asked when the app opens.</p>
       </div>
 
       <div class="set-card space-y-2">
@@ -837,14 +837,25 @@
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="toggleTheme()">🌙 Dark / ☀️ Light mode</button>
       </div>
 
-      <div class="set-card space-y-2">
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notifications</p>
-        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="enableNotifications()">🔔 Turn on notifications</button>
-        <p class="text-[11px] text-slate-400 text-center">Get an alert when the other person adds a note, a photo or a reaction. On iPhone, add the app to your Home Screen first.</p>
-      </div>
     </section>
 
   </main>
+
+  <!-- Bottom navigation bar (tap, or swipe left / right anywhere to change screen) -->
+  <nav id="bottom-nav" class="bottom-nav" aria-label="Main">
+    <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active">
+      <i class="fas fa-images"></i><span>Memories</span>
+    </button>
+    <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn">
+      <i class="fas fa-book-open"></i><span>Journal</span>
+    </button>
+    <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn">
+      <i class="fas fa-list-check"></i><span>Our List</span>
+    </button>
+    <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn">
+      <i class="fas fa-gear"></i><span>Settings</span>
+    </button>
+  </nav>
 
   <!-- IMAGE ZOOM / LIGHTBOX MODAL -->
   <div id="image-modal">
@@ -934,7 +945,7 @@
       </div>
       <p id="pass-error" class="pw-error"></p>
       <button id="pass-submit" type="button" class="sheet-btn bg-rose-500 text-white" onclick="submitPass()">Continue 💕</button>
-      <button type="button" class="text-xs text-slate-400 pt-1 underline" onclick="closePassScreen()">Back</button>
+      <button id="pass-back" type="button" class="text-xs text-slate-400 pt-1 underline" onclick="passBack()">Not you? Switch person</button>
     </div>
   </div>
 
@@ -1386,13 +1397,62 @@
       renderOnThisDay();
     }, err => console.error('journal listener error', err));
 
+    const SCREEN_ORDER = ['photos', 'journal', 'list', 'settings'];
+    let currentScreen = 'photos';
     function switchScreen(screen) {
-      ['photos', 'journal', 'list', 'settings'].forEach(name => {
+      const dir = SCREEN_ORDER.indexOf(screen) - SCREEN_ORDER.indexOf(currentScreen);
+      currentScreen = screen;
+      SCREEN_ORDER.forEach(name => {
         document.getElementById('screen-' + name).classList.toggle('hidden', name !== screen);
         document.getElementById('screen-' + name + '-btn').classList.toggle('active', name === screen);
       });
       if (screen === 'photos') updateUploadAuthorButtons(); // keep "who's adding it" in sync with the journal
+      const el = document.getElementById('screen-' + screen);
+      if (dir !== 0) {
+        el.classList.remove('screen-in-right', 'screen-in-left');
+        void el.offsetWidth;
+        el.classList.add(dir > 0 ? 'screen-in-right' : 'screen-in-left');
+      }
+      window.scrollTo(0, 0);
     }
+
+    // ---------- Swipe left / right to change screen (like Facebook) ----------
+    (function () {
+      let sx = 0, sy = 0, st = 0, tracking = false, fromBar = false;
+      function blocked(t) {
+        // never steal swipes from things that scroll sideways, inputs, popups or the photo viewer
+        if (!t || !t.closest) return false;
+        if (t.closest('input, textarea, select, [contenteditable]')) return true;
+        if (t.closest('#image-modal, #who-overlay, #pass-overlay, #sheet-overlay, #sheet-panel, [id$="-overlay"]')) return true;
+        let el = t;
+        while (el && el !== document.body) {
+          if (el.scrollWidth > el.clientWidth + 4) {
+            const ox = getComputedStyle(el).overflowX;
+            if (ox === 'auto' || ox === 'scroll') return true;
+          }
+          el = el.parentElement;
+        }
+        return false;
+      }
+      document.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) { tracking = false; return; }
+        const t = e.target;
+        fromBar = !!(t.closest && t.closest('#bottom-nav'));
+        tracking = fromBar || !blocked(t);
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      }, { passive: true });
+      document.addEventListener('touchend', e => {
+        if (!tracking) return;
+        tracking = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - sx, dy = t.clientY - sy;
+        if (Date.now() - st > 700) return;
+        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return; // must be a clear sideways swipe
+        const i = SCREEN_ORDER.indexOf(currentScreen) + (dx < 0 ? 1 : -1);
+        if (i < 0 || i >= SCREEN_ORDER.length) return;
+        switchScreen(SCREEN_ORDER[i]);
+      }, { passive: true });
+    })();
 
     // ---------- Upload ----------
     function updateUploadAuthorButtons() {
@@ -2185,6 +2245,13 @@
     const MIN_PASSWORD = 4;
     let passState = { mode: null, name: null };
     let passBusy = false;
+    let appUnlocked = false;           // true once the password was entered in this session
+
+    // Who owns this phone (saved after a successful login, like a Facebook account on a device)
+    function deviceUser() {
+      const d = storageGet(JOURNAL_AUTHOR_KEY);
+      return (d === 'Kero' || d === 'Tota') ? d : null;
+    }
 
     function getUnlocked() {
       try { const l = JSON.parse(storageGet(UNLOCKED_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; }
@@ -2244,6 +2311,7 @@
       p1.placeholder = creating ? 'New password' : 'Password';
       document.getElementById('pass-2-wrap').classList.toggle('hidden', !creating);
       document.getElementById('pass-submit').textContent = creating ? 'Save password 💕' : 'Enter 💕';
+      document.getElementById('pass-back').textContent = `Not ${name}? Switch person`;
       setPassError('');
       document.getElementById('pass-overlay').classList.add('open');
       setTimeout(() => p1.focus(), 150);
@@ -2252,6 +2320,13 @@
     function closePassScreen() {
       document.getElementById('pass-overlay').classList.remove('open');
       passState = { mode: null, name: null };
+    }
+
+    // "Not you? Switch person": back to the Kero / Tota choice
+    // (no Cancel there while the app is still locked, so nobody can slip past the password)
+    function passBack() {
+      closePassScreen();
+      showWhoOverlay(!appUnlocked);
     }
 
     function passEnter(field) {
@@ -2303,8 +2378,9 @@
     }
 
     function finishLogin(name) {
+      appUnlocked = true;
       journalAuthor = name;
-      storageSet(JOURNAL_AUTHOR_KEY, name);
+      storageSet(JOURNAL_AUTHOR_KEY, name);   // this phone now belongs to this person
       updateAuthorButtons();
       updateUploadAuthorButtons();
       updateHeaderUser();
@@ -2313,7 +2389,6 @@
       renderJournal();
       updateViewerActions();
       updateSettingsUi();
-      if ('Notification' in window && Notification.permission === 'granted') registerPushToken(name, true);
       closePassScreen();
       hideWhoOverlay();
     }
@@ -2382,18 +2457,26 @@
       }
     }
 
+    // Lock the app: ask for the password again (the phone still remembers who you are)
     function logoutThisPhone() {
-      storageSet(UNLOCKED_KEY, '[]');
-      journalAuthor = null;
-      storageSet(JOURNAL_AUTHOR_KEY, '');
-      updateAuthorButtons();
-      updateUploadAuthorButtons();
-      updateHeaderUser();
-      updateComposeAs();
-      updateSettingsUi();
-      renderPhotos();
-      renderJournal();
-      showWhoOverlay(true);
+      appUnlocked = false;
+      const who = deviceUser() || currentUser();
+      if (who) openPassScreen('enter', who);
+      else showWhoOverlay(true);
+    }
+
+    // When the app opens: a phone that already knows you goes straight to your password
+    function launchGate() {
+      appUnlocked = false;
+      const who = deviceUser();
+      if (!who) { showWhoOverlay(true); return; }
+      openPassScreen('enter', who);              // shown right away, so the app is never visible first
+      fetchPasswords().then(pws => {
+        // first time for this person and no password yet: switch to "create password"
+        if (!appUnlocked && passState.mode === 'enter' && passState.name === who && pws[who] === undefined) {
+          openPassScreen('create', who);
+        }
+      }).catch(() => {});
     }
 
     // Photos screen start-up (registered last so the journal has already loaded the remembered name)
@@ -2401,7 +2484,7 @@
       updateUploadAuthorButtons();
       renderPhotos();
       updateHeaderUser();
-      showWhoOverlay(true); // the choose screen is always the first thing you see
+      launchGate();         // choose screen the first time, then straight to your password
     });
 
     // =====================================================================
@@ -3121,58 +3204,6 @@
       renderVoiceUi('journal');
       renderVoiceUi('photo');
     });
-
-    // =====================================================================
-    // Push notifications (Firebase Cloud Messaging)
-    // =====================================================================
-    // Paste your key here: Firebase Console -> Project settings -> Cloud Messaging -> Web Push certificates
-    const VAPID_KEY = 'BOH-t0uP13X1FRHH-yKp9CmNzow1HCtYXQ568Y7dLPDMNDIQTOhGN6RMf0j9O6Qlc_w429eqZRmJqhds4mW6A8Y';
-    let messaging = null;
-    try { if (firebase.messaging && firebase.messaging.isSupported()) messaging = firebase.messaging(); } catch (e) { messaging = null; }
-    if (messaging) {
-      messaging.onMessage((payload) => {            // app is open: show a small message instead
-        const n = payload.notification || {};
-        showToast((n.title ? n.title + ' ' : '') + (n.body || ''));
-      });
-    }
-
-    async function registerPushToken(name, silent) {
-      if (!messaging || !('serviceWorker' in navigator) || !('Notification' in window)) {
-        if (!silent) showToast('On iPhone: add the app to your Home Screen first 📲');
-        return false;
-      }
-      if (VAPID_KEY.indexOf('PASTE') === 0) {
-        if (!silent) showToast('The VAPID key is missing (see setup steps)');
-        return false;
-      }
-      try {
-        if (Notification.permission !== 'granted') {
-          if (silent) return false;
-          const perm = await Notification.requestPermission();
-          if (perm !== 'granted') { showToast('Notifications are blocked in your settings'); return false; }
-        }
-        const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
-        const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
-        if (!token) return false;
-        const other = name === 'Kero' ? 'Tota' : 'Kero';
-        await db.collection('settings').doc('tokens').set({
-          [name]: firebase.firestore.FieldValue.arrayUnion(token),
-          [other]: firebase.firestore.FieldValue.arrayRemove(token)
-        }, { merge: true });
-        if (!silent) showToast('Notifications are on 🔔');
-        return true;
-      } catch (e) {
-        console.error('push error', e);
-        if (!silent) showToast('Could not turn on notifications');
-        return false;
-      }
-    }
-
-    function enableNotifications() {
-      const u = currentUser();
-      if (!u) { showWhoOverlay(); return; }
-      registerPushToken(u, false);
-    }
 
     function updateComposeAs() {
       const el = document.getElementById('compose-as');
