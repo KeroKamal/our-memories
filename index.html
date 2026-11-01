@@ -24,6 +24,7 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -465,6 +466,28 @@
     .suggest-chip { padding: 8px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: #fff; border: 1px dashed #fda4af; color: #e11d48; text-align: left; }
     .pick-text { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 34px; line-height: 1.15; color: #e11d48; text-align: center; overflow-wrap: anywhere; min-height: 80px; display: flex; align-items: center; justify-content: center; transition: opacity .1s ease; }
 
+    /* ---------- Voice notes ---------- */
+    .voice-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .voice-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 9999px;
+      font-size: 13px; font-weight: 700; background: #fff1f2; color: #e11d48; border: 1.5px solid #fecdd3;
+      transition: transform .12s ease;
+    }
+    .voice-btn:active { transform: scale(.95); }
+    .voice-btn.rec { background: #e11d48; color: #fff; border-color: #e11d48; animation: recPulse 1.2s ease infinite; }
+    @keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(225,29,72,.45); } 50% { box-shadow: 0 0 0 8px rgba(225,29,72,0); } }
+    .voice-play {
+      display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 9999px;
+      font-size: 12px; font-weight: 700; background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3;
+    }
+    .voice-play.playing { background: #e11d48; color: #fff; border-color: #e11d48; }
+    .voice-play.on-dark { background: rgba(255,255,255,.2); color: #fff; border-color: transparent; }
+    .voice-play.on-dark.playing { background: #e11d48; }
+    html.dark .voice-btn { background: #3b2a46; color: #fda4af; border-color: #4a3858; }
+    html.dark .voice-btn.rec { background: #e11d48; color: #fff; border-color: #e11d48; }
+    html.dark .voice-play { background: #3b2a46; color: #fda4af; border-color: #4a3858; }
+    html.dark .voice-play.playing { background: #e11d48; color: #fff; }
+
     /* ---------- Password screen + settings ---------- */
     #pass-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 130;
@@ -658,6 +681,11 @@
                     class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80"></textarea>
         </div>
 
+        <div>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Voice note (optional)</p>
+          <div id="voice-ui-photo" class="voice-row"></div>
+        </div>
+
         <div id="upload-progress" class="hidden">
           <div class="h-2 rounded-full bg-rose-100 overflow-hidden">
             <div id="upload-progress-bar" class="h-full rounded-full" style="width:0%; background:linear-gradient(90deg,#fb7185,#a78bfa); transition:width .3s ease;"></div>
@@ -687,6 +715,8 @@
             <span id="surprise-dice" class="text-base leading-none">🎲</span> Surprise me
           </button>
         </div>
+
+        <div id="pinned-photos" class="hidden space-y-1"></div>
 
         <div id="photos-container">
           <!-- Dynamically Populated -->
@@ -724,6 +754,8 @@
         </div>
 
         <textarea id="journal-text" rows="4" placeholder="Write thoughts or notes to each other..." class="paper-input"></textarea>
+
+        <div id="voice-ui-journal" class="voice-row"></div>
 
         <button onclick="addJournalEntry()" class="w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition">
           Send 💌
@@ -804,6 +836,12 @@
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Look</p>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="toggleTheme()">🌙 Dark / ☀️ Light mode</button>
       </div>
+
+      <div class="set-card space-y-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notifications</p>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="enableNotifications()">🔔 Turn on notifications</button>
+        <p class="text-[11px] text-slate-400 text-center">Get an alert when the other person adds a note, a photo or a reaction. On iPhone, add the app to your Home Screen first.</p>
+      </div>
     </section>
 
   </main>
@@ -858,6 +896,7 @@
         <span id="modal-author"></span>
       </div>
       <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1"></p>
+      <div id="modal-voice" class="px-1"></div>
       <div id="modal-reactions" class="flex flex-wrap gap-1.5 pt-1"></div>
     </div>
   </div>
@@ -1141,6 +1180,7 @@
       document.getElementById('modal-heart-icon').textContent = liked ? '❤️' : '🤍';
       document.getElementById('modal-heart-count').textContent = h > 0 ? h : '';
       document.getElementById('modal-author').innerHTML = photoAuthorBadge(p.author);
+      document.getElementById('modal-voice').innerHTML = voicePlayHtml('photos', p, true);
       document.getElementById('modal-reactions').innerHTML = reactionChipsHtml('photos', p, true);
     }
 
@@ -1448,6 +1488,7 @@
 
     async function uploadMemory() {
       if (!selectedFiles.length || isUploading) return;
+      if (rec && rec.ctx === 'photo') { showToast('Stop the recording first 🎙️'); return; }
       const caption = document.getElementById('photo-caption').value.trim();
 
       let author = null;
@@ -1511,6 +1552,15 @@
             hearts: 0,
             date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           };
+          if (voiceState.photo.data) {
+            // a Firestore document must stay under 1 MiB
+            if (compressed.length + voiceState.photo.data.length < 950000) {
+              newPhoto.voice = voiceState.photo.data;
+              newPhoto.voiceDur = voiceState.photo.dur;
+            } else {
+              showToast('Photo + voice note too big. Saved the photo without the voice note.');
+            }
+          }
           await db.collection('photos').doc(newPhoto.id.toString()).set(newPhoto);
 
           uploaded++;
@@ -1530,6 +1580,7 @@
       if (!failed) {
         setProgress(100, 'Saved! 🎉');
         document.getElementById('photo-caption').value = '';
+        discardVoice('photo');
         clearSelectedFile();
         showToast(total > 1 ? `${uploaded} memories added 💕` : 'Memory added 💕');
         setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
@@ -1641,8 +1692,9 @@
         alert('Please choose Kero or Tota first 💕');
         return;
       }
-      if (!textInput.value.trim()) {
-        alert('Please write something in the journal!');
+      if (rec && rec.ctx === 'journal') { showToast('Stop the recording first 🎙️'); return; }
+      if (!textInput.value.trim() && !voiceState.journal.data) {
+        alert('Please write something or record a voice note!');
         return;
       }
 
@@ -1656,8 +1708,10 @@
       };
 
       try {
+        if (voiceState.journal.data) { newEntry.voice = voiceState.journal.data; newEntry.voiceDur = voiceState.journal.dur; }
         await db.collection('journal').doc(newEntry.id.toString()).set(newEntry);
         textInput.value = '';
+        discardVoice('journal');
         journalMood = null;
         updateMoodButtons();
       } catch (err) {
@@ -1804,6 +1858,7 @@
       sheetNoteId = id;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('journal', ${Number(id)})">${(itemOf('journal', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openNoteEditSheet()">✏️ Edit note</button>
         <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openNoteDeleteSheet()">🗑️ Delete note</button>
         <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
@@ -1865,6 +1920,7 @@
       sheetPhotoId = id;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('photos', ${Number(id)})">${(itemOf('photos', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openEditSheet()">✏️ Edit note</button>
         <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
         <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
@@ -1949,12 +2005,14 @@
         <div class="snap-center flex-shrink-0 photo-card polaroid flex flex-col" style="--tilt:${tilt}deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${p.pinned ? '<span class="absolute top-2 right-2 text-base bg-white/85 rounded-full w-7 h-7 flex items-center justify-center pointer-events-none">📌</span>' : ''}
             <span class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
               #${photos.length - index}
             </span>
           </div>
           <div class="pt-3 px-1 space-y-2" style="min-width:0">
             <p class="font-sans text-sm font-medium leading-snug text-slate-700 safe-text caption-clamp">${escapeHtml(p.caption)}</p>
+            ${voicePlayHtml('photos', p)}
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2 flex-wrap" style="min-width:0">
                 <span class="text-[10px] text-slate-400">${escapeHtml(formatPhotoDate(p))}</span>
@@ -1983,6 +2041,7 @@
         <div class="polaroid" style="padding:8px 8px 8px; --tilt:0deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${(p.pinned || p.voice) ? `<span class="absolute top-1.5 right-1.5 text-sm bg-white/85 rounded-full px-1.5 h-6 flex items-center pointer-events-none">${p.pinned ? '📌' : ''}${p.voice ? '🎙️' : ''}</span>` : ''}
             ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${kero ? '🐻' : '🦜'}</span>` : ''}
             ${rx ? `<span class="absolute bottom-1.5 left-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center text-sm pointer-events-none">${rx}</span>` : ''}
             <button type="button" onclick="event.stopPropagation(); togglePhotoHeart(${Number(p.id)})" aria-label="Heart this memory"
@@ -2000,6 +2059,7 @@
       const container = document.getElementById('photos-container');
       const n = photos.length;
       document.getElementById('photo-counter').innerText = `${n} ${n === 1 ? 'memory' : 'memories'} 💕`;
+      renderPinnedPhotos();
       updateViewButtons();
 
       if (n === 0) {
@@ -2050,7 +2110,8 @@
         return;
       }
 
-      journalFeed.innerHTML = journal.map((j, index) => {
+      const feed = journal.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)); // pinned notes first
+      journalFeed.innerHTML = feed.map((j, index) => {
         const kind = authorKind(j.author);
         const key = String(j.id);
         const isNew = !journalFirstRender && !renderedJournalIds.has(key);
@@ -2064,12 +2125,13 @@
         return `
           <div id="note-${Number(j.id)}" class="paper paper-${kind} ${isNew ? 'note-pop' : ''}" style="--tilt:${tilt}deg">
             <div class="flex items-start justify-between gap-3 mb-2">
-              <span class="paper-date">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
+              <span class="paper-date">${j.pinned ? '📌 ' : ''}${escapeHtml(formatNoteTime(j.id, j.date))}</span>
               ${j.mood ? `<span class="paper-mood">${escapeHtml(j.mood)}</span>` : ''}
             </div>
             <div class="paper-body">
               <span class="paper-greet ink-${kind}">${greet}</span>
-              <div class="paper-text safe-text">${escapeHtml(j.text)}</div>
+              ${j.text ? `<div class="paper-text safe-text">${escapeHtml(j.text)}</div>` : ''}
+              ${j.voice ? `<div style="height:28px; display:flex; align-items:center">${voicePlayHtml('journal', j)}</div>` : ''}
               <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(j.author)}</div>
             </div>
             <div class="paper-actions">
@@ -2251,6 +2313,7 @@
       renderJournal();
       updateViewerActions();
       updateSettingsUi();
+      if ('Notification' in window && Notification.permission === 'granted') registerPushToken(name, true);
       closePassScreen();
       hideWhoOverlay();
     }
@@ -2871,6 +2934,246 @@
     // =====================================================================
     // Small helpers + start-up for the new parts
     // =====================================================================
+    // =====================================================================
+    // Pinned notes / photos
+    // =====================================================================
+    async function togglePin(col, id) {
+      const it = itemOf(col, id);
+      if (!it) return;
+      const now = !it.pinned;
+      closeSheet();
+      try {
+        await db.collection(col).doc(String(id)).update({ pinned: now });
+        showToast(now ? 'Pinned to the top 📌' : 'Unpinned');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    function renderPinnedPhotos() {
+      const el = document.getElementById('pinned-photos');
+      if (!el) return;
+      const pins = photos.filter(p => p.pinned);
+      if (!pins.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.classList.remove('hidden');
+      el.innerHTML = `
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">📌 Pinned</p>
+        <div class="otd-row">
+          ${pins.map((p, i) => `
+            <button type="button" class="otd-photo" style="--tilt:${i % 2 ? 2 : -2}deg; width:110px" onclick="openModalById(${Number(p.id)})" aria-label="Open pinned memory">
+              <img src="${p.imageData}" alt="Pinned memory" loading="lazy">
+            </button>`).join('')}
+        </div>`;
+    }
+
+    // =====================================================================
+    // Voice notes (record -> small audio file stored inside the note)
+    // =====================================================================
+    const MAX_VOICE_SECONDS = 60;
+    const voiceState = { journal: { data: null, dur: 0 }, photo: { data: null, dur: 0 } };
+    let rec = null;                 // the recording in progress
+    let curAudio = null;            // the audio that is playing right now
+    let curVoiceKey = null;
+
+    function fmtDur(s) {
+      s = Math.max(0, Math.round(Number(s) || 0));
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    function pickMime() {
+      if (!window.MediaRecorder) return '';
+      // mp4 first: it plays on every iPhone and Android
+      return ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+        .find(t => MediaRecorder.isTypeSupported(t)) || '';
+    }
+
+    function voicePlayHtml(col, item, onDark) {
+      if (!item || !item.voice) return '';
+      const key = col + ':' + item.id;
+      const playing = curAudio && !curAudio.paused && curVoiceKey === key;
+      return `<button type="button" class="voice-play ${playing ? 'playing' : ''} ${onDark ? 'on-dark' : ''}" data-voice="${key}" onclick="event.stopPropagation(); playVoice('${col}', ${Number(item.id)})" aria-label="Play voice note"><span class="vp-icon">${playing ? '⏸' : '▶'}</span> 🎙️ ${fmtDur(item.voiceDur)}</button>`;
+    }
+
+    function refreshVoiceButtons() {
+      document.querySelectorAll('[data-voice]').forEach(b => {
+        const playing = !!(curAudio && !curAudio.paused && b.dataset.voice === curVoiceKey);
+        b.classList.toggle('playing', playing);
+        const ic = b.querySelector('.vp-icon');
+        if (ic) ic.textContent = playing ? '⏸' : '▶';
+      });
+    }
+
+    function playAudioSource(src, key) {
+      if (curAudio && curVoiceKey === key) {            // same one: play / pause
+        if (curAudio.paused) curAudio.play().catch(() => {}); else curAudio.pause();
+        refreshVoiceButtons();
+        return;
+      }
+      if (curAudio) curAudio.pause();
+      const a = new Audio(src);
+      curAudio = a; curVoiceKey = key;
+      a.onended = () => { if (curAudio === a) { curAudio = null; curVoiceKey = null; } refreshVoiceButtons(); };
+      a.onpause = refreshVoiceButtons;
+      a.onplay = refreshVoiceButtons;
+      a.play().catch(() => {
+        showToast("Can't play this voice note on this phone");
+        if (curAudio === a) { curAudio = null; curVoiceKey = null; }
+        refreshVoiceButtons();
+      });
+    }
+
+    function playVoice(col, id) {
+      const item = itemOf(col, id);
+      if (item && item.voice) playAudioSource(item.voice, col + ':' + id);
+    }
+
+    function previewVoice(ctx) {
+      const st = voiceState[ctx];
+      if (st.data) playAudioSource(st.data, 'preview:' + ctx);
+    }
+
+    function renderVoiceUi(ctx) {
+      const el = document.getElementById('voice-ui-' + ctx);
+      if (!el) return;
+      const st = voiceState[ctx];
+      if (rec && rec.ctx === ctx) {
+        el.innerHTML = `<button type="button" class="voice-btn rec" onclick="stopRecording()">⏹ Stop · <span id="rec-time-${ctx}">0:00</span></button><span class="text-[11px] text-slate-400">max ${MAX_VOICE_SECONDS} seconds</span>`;
+      } else if (st.data) {
+        el.innerHTML = `<button type="button" class="voice-play" onclick="previewVoice('${ctx}')">▶ 🎙️ ${fmtDur(st.dur)}</button><button type="button" class="voice-btn" onclick="discardVoice('${ctx}')">🗑️ Remove</button>`;
+      } else {
+        el.innerHTML = `<button type="button" class="voice-btn" onclick="startRecording('${ctx}')">🎙️ Record a voice note</button>`;
+      }
+    }
+
+    function discardVoice(ctx) {
+      if (curVoiceKey === 'preview:' + ctx && curAudio) { curAudio.pause(); curAudio = null; curVoiceKey = null; }
+      voiceState[ctx] = { data: null, dur: 0 };
+      renderVoiceUi(ctx);
+    }
+
+    async function startRecording(ctx) {
+      if (rec) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+        showToast('Voice recording is not supported here');
+        return;
+      }
+      if (curAudio) curAudio.pause();
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        showToast('Please allow the microphone 🎙️');
+        return;
+      }
+      const mime = pickMime();
+      let mr;
+      try {
+        mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 });
+      } catch (e) {
+        try { mr = new MediaRecorder(stream); }
+        catch (e2) {
+          stream.getTracks().forEach(t => t.stop());
+          showToast('Voice recording is not supported here');
+          return;
+        }
+      }
+      const chunks = [];
+      const r = { ctx, mr, stream, chunks, start: Date.now(), timer: null };
+      mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = async () => {
+        clearInterval(r.timer);
+        stream.getTracks().forEach(t => t.stop());
+        const dur = (Date.now() - r.start) / 1000;
+        rec = null;
+        try {
+          const blob = new Blob(chunks, { type: mr.mimeType || mime || 'audio/mp4' });
+          const dataUrl = await readAsDataURL(blob);
+          if (dur < 0.7 || blob.size < 500) {
+            showToast('That was too short 🙈');
+          } else if (dataUrl.length > 450000) {
+            showToast('Voice note too long. Try a shorter one.');
+          } else {
+            voiceState[ctx] = { data: dataUrl, dur: dur };
+          }
+        } catch (e) {
+          console.error(e);
+          showToast('Could not save the recording');
+        }
+        renderVoiceUi(ctx);
+      };
+      rec = r;
+      mr.start();
+      r.timer = setInterval(() => {
+        const s = (Date.now() - r.start) / 1000;
+        const t = document.getElementById('rec-time-' + ctx);
+        if (t) t.textContent = fmtDur(s);
+        if (s >= MAX_VOICE_SECONDS) stopRecording();
+      }, 250);
+      renderVoiceUi(ctx);
+    }
+
+    function stopRecording() {
+      if (rec && rec.mr && rec.mr.state !== 'inactive') rec.mr.stop();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderVoiceUi('journal');
+      renderVoiceUi('photo');
+    });
+
+    // =====================================================================
+    // Push notifications (Firebase Cloud Messaging)
+    // =====================================================================
+    // Paste your key here: Firebase Console -> Project settings -> Cloud Messaging -> Web Push certificates
+    const VAPID_KEY = 'PASTE_YOUR_VAPID_KEY_HERE';
+    let messaging = null;
+    try { if (firebase.messaging && firebase.messaging.isSupported()) messaging = firebase.messaging(); } catch (e) { messaging = null; }
+    if (messaging) {
+      messaging.onMessage((payload) => {            // app is open: show a small message instead
+        const n = payload.notification || {};
+        showToast((n.title ? n.title + ' ' : '') + (n.body || ''));
+      });
+    }
+
+    async function registerPushToken(name, silent) {
+      if (!messaging || !('serviceWorker' in navigator) || !('Notification' in window)) {
+        if (!silent) showToast('On iPhone: add the app to your Home Screen first 📲');
+        return false;
+      }
+      if (VAPID_KEY.indexOf('PASTE') === 0) {
+        if (!silent) showToast('The VAPID key is missing (see setup steps)');
+        return false;
+      }
+      try {
+        if (Notification.permission !== 'granted') {
+          if (silent) return false;
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') { showToast('Notifications are blocked in your settings'); return false; }
+        }
+        const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+        const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+        if (!token) return false;
+        const other = name === 'Kero' ? 'Tota' : 'Kero';
+        await db.collection('settings').doc('tokens').set({
+          [name]: firebase.firestore.FieldValue.arrayUnion(token),
+          [other]: firebase.firestore.FieldValue.arrayRemove(token)
+        }, { merge: true });
+        if (!silent) showToast('Notifications are on 🔔');
+        return true;
+      } catch (e) {
+        console.error('push error', e);
+        if (!silent) showToast('Could not turn on notifications');
+        return false;
+      }
+    }
+
+    function enableNotifications() {
+      const u = currentUser();
+      if (!u) { showWhoOverlay(); return; }
+      registerPushToken(u, false);
+    }
+
     function updateComposeAs() {
       const el = document.getElementById('compose-as');
       if (!el) return;
