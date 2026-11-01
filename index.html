@@ -833,28 +833,10 @@
         <p id="settings-user" class="text-sm font-semibold text-slate-600 mt-1"></p>
       </div>
 
-      <div class="set-card space-y-3">
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">My profile</p>
-        <div class="text-center">
-          <div id="profile-preview-emoji" class="text-6xl leading-none">💕</div>
-          <div id="profile-preview-name" class="font-cursive text-3xl font-bold text-rose-600 mt-1"></div>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My name</label>
-          <input id="profile-name" type="text" maxlength="14" autocomplete="off" placeholder="Your name" oninput="previewProfile()" class="pw-input" style="padding-right:16px">
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My emoji</label>
-          <input id="profile-emoji" type="text" autocomplete="off" placeholder="Tap here, then the 🙂 key on your keyboard" oninput="previewProfile()" class="pw-input" style="padding-right:16px; font-size:22px">
-        </div>
-        <button type="button" class="sheet-btn bg-rose-500 text-white" onclick="saveProfile()">Save 💕</button>
-        <button type="button" class="sheet-btn bg-slate-100 text-slate-600" onclick="resetProfile()">Back to the original name and emoji</button>
-        <p class="text-[11px] text-slate-400 text-center">The other person sees your new name and emoji on their phone too.</p>
-      </div>
-
       <div class="set-card space-y-2">
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</p>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="openChangePassSheet()">🔑 Change my password</button>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="openProfileSheet()">✏️ Change my username</button>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showMyPassword()">👁️ Show my password</button>
       </div>
 
@@ -2513,7 +2495,6 @@
       const el = document.getElementById('settings-user');
       const u = currentUser();
       if (el) el.textContent = u ? `Signed in as ${personEmoji(u)} ${displayName(u)}` : '';
-      if (typeof updateProfileForm === 'function') updateProfileForm();
     }
 
     function openChangePassSheet() {
@@ -3382,36 +3363,34 @@
       return parts.filter(g => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)).slice(0, 2).join('');
     }
 
-    function updateProfileForm(force) {
+    function openProfileSheet() {
       const u = currentUser();
-      const n = document.getElementById('profile-name');
-      const e = document.getElementById('profile-emoji');
-      if (!n || !e) return;
-      if (!u) { n.value = ''; e.value = ''; previewProfile(); return; }
-      const editing = document.activeElement === n || document.activeElement === e;
-      if (force || !editing) { n.value = profileOf(u).name; e.value = profileOf(u).emoji; }
-      previewProfile();
-    }
-
-    function previewProfile() {
-      const n = document.getElementById('profile-name');
-      const e = document.getElementById('profile-emoji');
-      const pe = document.getElementById('profile-preview-emoji');
-      const pn = document.getElementById('profile-preview-name');
-      if (!n || !pe || !pn) return;
-      pe.textContent = cleanEmoji(e.value) || '💕';
-      pn.textContent = n.value.trim();
+      if (!u) { showWhoOverlay(); return; }
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Change my username ✏️</p>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My name</label>
+        <input id="sheet-profile-name" type="text" maxlength="14" autocomplete="off" placeholder="Your name" class="pw-input mb-3" style="padding-right:16px">
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My emoji (from your keyboard)</label>
+        <input id="sheet-profile-emoji" type="text" autocomplete="off" placeholder="Tap here, then the 🙂 key" class="pw-input mb-3" style="padding-right:16px; font-size:22px">
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveProfile()">Save 💕</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="resetProfile()">Back to the original</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+      document.getElementById('sheet-profile-name').value = profileOf(u).name;
+      document.getElementById('sheet-profile-emoji').value = profileOf(u).emoji;
     }
 
     async function saveProfile() {
       const u = currentUser();
       if (!u) { showWhoOverlay(); return; }
-      const name = document.getElementById('profile-name').value.trim().slice(0, 14);
-      const emoji = cleanEmoji(document.getElementById('profile-emoji').value);
+      const name = document.getElementById('sheet-profile-name').value.trim().slice(0, 14);
+      const emoji = cleanEmoji(document.getElementById('sheet-profile-emoji').value);
       if (!name) { showToast('Please write a name 💭'); return; }
       if (!emoji) { showToast('Please add an emoji from your keyboard 🙂'); return; }
       try {
         await db.collection('settings').doc('profiles').set({ [u]: { name, emoji } }, { merge: true });
+        closeSheet();
         showToast('Saved 💕');
       } catch (err) {
         console.error(err);
@@ -3424,7 +3403,7 @@
       if (!u) { showWhoOverlay(); return; }
       try {
         await db.collection('settings').doc('profiles').set({ [u]: { ...DEFAULT_PROFILES[u] } }, { merge: true });
-        updateProfileForm(true);
+        closeSheet();
         showToast('Back to the original 💕');
       } catch (err) {
         console.error(err);
