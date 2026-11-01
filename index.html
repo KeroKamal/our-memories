@@ -630,7 +630,7 @@
     <div class="max-w-md mx-auto flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-2xl">💖</span>
-        <h1 class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
+        <h1 id="app-title" class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
       <div class="flex items-center gap-2">
         <button id="theme-btn" type="button" onclick="toggleTheme()" aria-label="Switch to dark mode"
@@ -831,6 +831,25 @@
       <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm text-center">
         <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Settings ⚙️</h3>
         <p id="settings-user" class="text-sm font-semibold text-slate-600 mt-1"></p>
+      </div>
+
+      <div class="set-card space-y-3">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">My profile</p>
+        <div class="text-center">
+          <div id="profile-preview-emoji" class="text-6xl leading-none">💕</div>
+          <div id="profile-preview-name" class="font-cursive text-3xl font-bold text-rose-600 mt-1"></div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My name</label>
+          <input id="profile-name" type="text" maxlength="14" autocomplete="off" placeholder="Your name" oninput="previewProfile()" class="pw-input" style="padding-right:16px">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My emoji</label>
+          <input id="profile-emoji" type="text" autocomplete="off" placeholder="Tap here, then the 🙂 key on your keyboard" oninput="previewProfile()" class="pw-input" style="padding-right:16px; font-size:22px">
+        </div>
+        <button type="button" class="sheet-btn bg-rose-500 text-white" onclick="saveProfile()">Save 💕</button>
+        <button type="button" class="sheet-btn bg-slate-100 text-slate-600" onclick="resetProfile()">Back to the original name and emoji</button>
+        <p class="text-[11px] text-slate-400 text-center">The other person sees your new name and emoji on their phone too.</p>
       </div>
 
       <div class="set-card space-y-2">
@@ -1048,7 +1067,7 @@
     function photoAuthorBadge(author) {
       if (author !== 'Kero' && author !== 'Tota') return '';
       const kero = author === 'Kero';
-      return `<span class="author-chip" style="background:${kero ? '#ffe4e6' : '#ede9fe'}; color:${kero ? '#e11d48' : '#7c3aed'}">${kero ? '🐻' : '🦜'} ${author}</span>`;
+      return `<span class="author-chip" style="background:${kero ? '#ffe4e6' : '#ede9fe'}; color:${kero ? '#e11d48' : '#7c3aed'}">${escapeHtml(personEmoji(author))} ${escapeHtml(displayName(author))}</span>`;
     }
 
     // Shrink the image so the Firestore document stays well under the 1 MiB limit
@@ -2157,7 +2176,7 @@
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
             ${(p.pinned || p.voice) ? `<span class="absolute top-1.5 right-1.5 text-sm bg-white/85 rounded-full px-1.5 h-6 flex items-center pointer-events-none">${p.pinned ? '📌' : ''}${p.voice ? '🎙️' : ''}</span>` : ''}
-            ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${kero ? '🐻' : '🦜'}</span>` : ''}
+            ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${escapeHtml(personEmoji(p.author))}</span>` : ''}
             ${rx ? `<span class="absolute bottom-1.5 left-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center text-sm pointer-events-none">${rx}</span>` : ''}
             <button type="button" onclick="event.stopPropagation(); togglePhotoHeart(${Number(p.id)})" aria-label="Heart this memory"
                     class="absolute bottom-1.5 right-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center gap-1 text-xs font-bold text-rose-500">
@@ -2232,8 +2251,8 @@
         const isNew = !journalFirstRender && !renderedJournalIds.has(key);
         const liked = journalLiked.has(key);
         const hearts = Math.max(0, Number(j.hearts) || 0);
-        const icon = kind === 'kero' ? '🐻' : kind === 'tota' ? '🦜' : '💕';
-        const greet = kind === 'kero' ? 'Dear Tota,' : kind === 'tota' ? 'Dear Kero,' : 'Dear love,';
+        const icon = escapeHtml(personEmoji(j.author));
+        const greet = kind === 'kero' ? 'Dear ' + escapeHtml(displayName('Tota')) + ',' : kind === 'tota' ? 'Dear ' + escapeHtml(displayName('Kero')) + ',' : 'Dear love,';
         const tilt = (index % 2 === 0) ? -0.5 : 0.5;
         const chips = reactionChipsHtml('journal', j, false);
 
@@ -2247,7 +2266,7 @@
               <span class="paper-greet ink-${kind}">${greet}</span>
               ${j.text ? `<div class="paper-text safe-text">${escapeHtml(j.text)}</div>` : ''}
               ${j.voice ? `<div style="height:28px; display:flex; align-items:center">${voicePlayHtml('journal', j)}</div>` : ''}
-              <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(j.author)}</div>
+              <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(displayName(j.author))}</div>
             </div>
             <div class="paper-actions">
               <div class="flex flex-wrap gap-1.5" style="min-width:0">${chips}</div>
@@ -2278,7 +2297,7 @@
       if (!u) { chip.classList.add('hidden'); chip.classList.remove('flex'); return; }
       chip.classList.remove('hidden');
       chip.classList.add('flex');
-      chip.innerHTML = `<span class="text-base leading-none">${u === 'Kero' ? '🐻' : '🦜'}</span> ${u} <span class="text-[10px] font-semibold text-rose-400">· switch</span>`;
+      chip.innerHTML = `<span class="text-base leading-none">${escapeHtml(personEmoji(u))}</span> ${escapeHtml(displayName(u))} <span class="text-[10px] font-semibold text-rose-400">· switch</span>`;
     }
 
     function showWhoOverlay(atLaunch) {
@@ -2359,11 +2378,11 @@
     function openPassScreen(mode, name, noFocus) {
       passState = { mode, name };
       const creating = mode === 'create';
-      document.getElementById('pass-emoji').textContent = name === 'Kero' ? '🐻' : '🦜';
-      document.getElementById('pass-title').textContent = creating ? 'Create password' : 'Welcome, ' + name;
+      document.getElementById('pass-emoji').textContent = personEmoji(name);
+      document.getElementById('pass-title').textContent = creating ? 'Create password' : 'Welcome, ' + displayName(name);
       document.getElementById('pass-sub').textContent = creating
-        ? `Choose a password for ${name}.`
-        : `Enter ${name}'s password`;
+        ? `Choose a password for ${displayName(name)}.`
+        : `Enter ${displayName(name)}'s password`;
       const p1 = document.getElementById('pass-1');
       const p2 = document.getElementById('pass-2');
       p1.value = ''; p2.value = '';
@@ -2372,7 +2391,7 @@
       p1.placeholder = creating ? 'New password' : 'Password';
       document.getElementById('pass-2-wrap').classList.toggle('hidden', !creating);
       document.getElementById('pass-submit').textContent = creating ? 'Save password 💕' : 'Enter 💕';
-      document.getElementById('pass-back').textContent = `Not ${name}? Switch person`;
+      document.getElementById('pass-back').textContent = `Not ${displayName(name)}? Switch person`;
       setPassError('');
       document.getElementById('pass-overlay').classList.add('open');
       // iPhone: focusing without a tap leaves the box "focused" but the keyboard never opens, and a later tap does nothing.
@@ -2442,7 +2461,7 @@
           if (p1 !== p2) { setPassError("The two passwords don't match"); return; }
           // someone may have created it a moment ago: check again before saving
           const pws = await fetchPasswords();
-          if (pws[name]) { openPassScreen('enter', name); setPassError(`${name} already has a password. Enter it.`); return; }
+          if (pws[name]) { openPassScreen('enter', name); setPassError(`${displayName(name)} already has a password. Enter it.`); return; }
           await pwRef().set({ [name]: p1 }, { merge: true });
           markUnlocked(name);
           finishLogin(name);
@@ -2493,7 +2512,8 @@
     function updateSettingsUi() {
       const el = document.getElementById('settings-user');
       const u = currentUser();
-      if (el) el.textContent = u ? `Signed in as ${personEmoji(u)} ${u}` : '';
+      if (el) el.textContent = u ? `Signed in as ${personEmoji(u)} ${displayName(u)}` : '';
+      if (typeof updateProfileForm === 'function') updateProfileForm();
     }
 
     function openChangePassSheet() {
@@ -2544,7 +2564,7 @@
         const pws = await fetchPasswords();
         openSheet(`
           <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
-          <p class="text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">${escapeHtml(u)}'s password</p>
+          <p class="text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">${escapeHtml(displayName(u))}'s password</p>
           <p class="pick-text my-3" style="font-size:28px">${escapeHtml(pws[u] || '(none yet)')}</p>
           <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
         `);
@@ -2719,7 +2739,7 @@
             ${g.no.map((j, i) => `
               <button type="button" class="otd-note" style="--tilt:${i % 2 ? -1.5 : 1.5}deg" onclick="goToNote(${Number(j.id)})" aria-label="Open note">
                 <p class="text-[12px] leading-snug font-medium safe-text caption-clamp">${escapeHtml(j.text)}</p>
-                <p class="font-cursive text-base mt-1 ink-${authorKind(j.author)}">— ${escapeHtml(j.author)}</p>
+                <p class="font-cursive text-base mt-1 ink-${authorKind(j.author)}">— ${escapeHtml(displayName(j.author))}</p>
               </button>`).join('')}
           </div>
         </div>
@@ -2737,7 +2757,7 @@
       return arr.find(x => String(x.id) === String(id));
     }
 
-    function personEmoji(name) { return name === 'Kero' ? '🐻' : name === 'Tota' ? '🦜' : '💕'; }
+    function personEmoji(name) { return (name === 'Kero' || name === 'Tota') ? profileOf(name).emoji : '💕'; }
 
     function reactionGroups(item) {
       const r = (item && item.reactions) || {};
@@ -3022,9 +3042,9 @@
       let meta = typeLabel;
       if (it.done) {
         const when = it.doneAt ? new Date(Number(it.doneAt)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-        meta += ` · ✓ ${escapeHtml(it.doneBy || '')}${when ? ' · ' + when : ''}`;
+        meta += ` · ✓ ${escapeHtml(displayName(it.doneBy || ''))}${when ? ' · ' + when : ''}`;
       } else if (it.addedBy) {
-        meta += ` · added by ${escapeHtml(it.addedBy)}`;
+        meta += ` · added by ${escapeHtml(displayName(it.addedBy))}`;
       }
       return `
         <div class="todo-row ${it.done ? 'done' : ''}" onclick="toggleBucket(${Number(it.id)})">
@@ -3301,11 +3321,122 @@
       renderVoiceUi('photo');
     });
 
+    // =====================================================================
+    // Profiles: each person can change their display name + emoji (shared through Firestore)
+    // The internal ids "Kero" and "Tota" never change (passwords, notes and reactions use them).
+    // =====================================================================
+    const DEFAULT_PROFILES = { Kero: { name: 'Kero', emoji: '🐻' }, Tota: { name: 'Tota', emoji: '🦜' } };
+    const PROFILES_CACHE_KEY = 'profilesCache';
+    let profiles = { Kero: { ...DEFAULT_PROFILES.Kero }, Tota: { ...DEFAULT_PROFILES.Tota } };
+
+    function mergeProfiles(data) {
+      ['Kero', 'Tota'].forEach(id => {
+        const d = data && data[id];
+        if (!d) return;
+        const name = typeof d.name === 'string' ? d.name.trim().slice(0, 14) : '';
+        const emoji = typeof d.emoji === 'string' ? d.emoji.trim().slice(0, 16) : '';
+        profiles[id] = { name: name || DEFAULT_PROFILES[id].name, emoji: emoji || DEFAULT_PROFILES[id].emoji };
+      });
+    }
+    try { mergeProfiles(JSON.parse(storageGet(PROFILES_CACHE_KEY) || 'null')); } catch (e) {}
+
+    function profileOf(id) { return profiles[id] || { name: id || '', emoji: '💕' }; }
+    function displayName(id) { return (id === 'Kero' || id === 'Tota') ? profileOf(id).name : (id || ''); }
+
+    function applyProfiles() {
+      const t = document.getElementById('app-title');
+      if (t) t.textContent = profiles.Kero.name + ' & ' + profiles.Tota.name;
+      document.querySelectorAll('.who-big[data-who]').forEach(b => {
+        b.innerHTML = `<span class="emoji">${escapeHtml(personEmoji(b.dataset.who))}</span> ${escapeHtml(displayName(b.dataset.who))}`;
+      });
+      [['who-kero', 'Kero'], ['who-tota', 'Tota'], ['up-who-kero', 'Kero'], ['up-who-tota', 'Tota']].forEach(([id, who]) => {
+        const b = document.getElementById(id);
+        if (b) b.innerHTML = `<span class="text-lg">${escapeHtml(personEmoji(who))}</span> ${escapeHtml(displayName(who))}`;
+      });
+      try { renderPhotos(); } catch (e) {}
+      try { renderJournal(); } catch (e) {}
+      try { renderBucket(); } catch (e) {}
+      try { renderOnThisDay(); } catch (e) {}
+      try { updateHeaderUser(); } catch (e) {}
+      try { updateComposeAs(); } catch (e) {}
+      try { updateSettingsUi(); } catch (e) {}
+      try { updateViewerActions(); } catch (e) {}
+    }
+
+    db.collection('settings').doc('profiles').onSnapshot(snap => {
+      if (snap.exists) {
+        mergeProfiles(snap.data());
+        storageSet(PROFILES_CACHE_KEY, JSON.stringify(profiles));
+      }
+      applyProfiles();
+    }, err => console.error('profiles listener error', err));
+
+    // first grapheme(s) the person typed; must really be an emoji
+    function cleanEmoji(raw) {
+      const t = String(raw || '').trim();
+      if (!t) return '';
+      let parts;
+      try { parts = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(t), x => x.segment); }
+      catch (e) { parts = Array.from(t); }
+      // keep only real emoji (letters and digits are dropped), at most two
+      return parts.filter(g => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)).slice(0, 2).join('');
+    }
+
+    function updateProfileForm(force) {
+      const u = currentUser();
+      const n = document.getElementById('profile-name');
+      const e = document.getElementById('profile-emoji');
+      if (!n || !e) return;
+      if (!u) { n.value = ''; e.value = ''; previewProfile(); return; }
+      const editing = document.activeElement === n || document.activeElement === e;
+      if (force || !editing) { n.value = profileOf(u).name; e.value = profileOf(u).emoji; }
+      previewProfile();
+    }
+
+    function previewProfile() {
+      const n = document.getElementById('profile-name');
+      const e = document.getElementById('profile-emoji');
+      const pe = document.getElementById('profile-preview-emoji');
+      const pn = document.getElementById('profile-preview-name');
+      if (!n || !pe || !pn) return;
+      pe.textContent = cleanEmoji(e.value) || '💕';
+      pn.textContent = n.value.trim();
+    }
+
+    async function saveProfile() {
+      const u = currentUser();
+      if (!u) { showWhoOverlay(); return; }
+      const name = document.getElementById('profile-name').value.trim().slice(0, 14);
+      const emoji = cleanEmoji(document.getElementById('profile-emoji').value);
+      if (!name) { showToast('Please write a name 💭'); return; }
+      if (!emoji) { showToast('Please add an emoji from your keyboard 🙂'); return; }
+      try {
+        await db.collection('settings').doc('profiles').set({ [u]: { name, emoji } }, { merge: true });
+        showToast('Saved 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    async function resetProfile() {
+      const u = currentUser();
+      if (!u) { showWhoOverlay(); return; }
+      try {
+        await db.collection('settings').doc('profiles').set({ [u]: { ...DEFAULT_PROFILES[u] } }, { merge: true });
+        updateProfileForm(true);
+        showToast('Back to the original 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
     function updateComposeAs() {
       const el = document.getElementById('compose-as');
       if (!el) return;
       const u = currentUser();
-      el.textContent = u ? `Writing as ${personEmoji(u)} ${u}` : 'Write something sweet for each other';
+      el.textContent = u ? `Writing as ${personEmoji(u)} ${displayName(u)}` : 'Write something sweet for each other';
     }
 
     document.addEventListener('DOMContentLoaded', () => {
