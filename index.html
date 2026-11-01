@@ -523,8 +523,6 @@
       padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
     }
     #pass-overlay.open { display: flex; }
-    /* own GPU layer: avoids stale tap areas in the iPhone Home Screen (standalone) app */
-    #pass-overlay, #who-overlay { -webkit-transform: translateZ(0); transform: translateZ(0); }
     .pw-input { -webkit-appearance: none; touch-action: manipulation; }
     .pw-wrap { position: relative; }
     .pw-input {
@@ -2394,11 +2392,19 @@
         el.addEventListener('touchend', wake, { passive: true });
         el.addEventListener('click', wake);
       });
-      // after everything has loaded, nudge the layout so the first tap lands correctly
-      window.addEventListener('load', () => {
-        const o = document.getElementById('pass-overlay');
-        if (o && o.classList.contains('open')) { o.style.display = 'none'; void o.offsetHeight; o.style.display = ''; }
-      });
+      // iPhone Home Screen app: right after launch the page's tap map can be out of sync until you pinch.
+      // Briefly changing the viewport setting forces the same recalculation a pinch does.
+      function nudgeViewport() {
+        const m = document.querySelector('meta[name="viewport"]');
+        if (!m) return;
+        const orig = m.getAttribute('content');
+        m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+        window.scrollTo(0, 0);
+        setTimeout(() => m.setAttribute('content', orig), 120);
+      }
+      window.addEventListener('load', () => { nudgeViewport(); setTimeout(nudgeViewport, 700); });
+      window.addEventListener('pageshow', () => setTimeout(nudgeViewport, 100));
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(nudgeViewport, 100); });
     })();
 
     function closePassScreen() {
