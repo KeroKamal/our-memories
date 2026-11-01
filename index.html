@@ -1422,6 +1422,71 @@
     function closeSheet() {
       document.getElementById('sheet-overlay').classList.remove('open');
       sheetPhotoId = null;
+      sheetNoteId = null;
+    }
+
+    // ---------- Journal notes: edit / delete ----------
+    let sheetNoteId = null;
+
+    function openNoteMenu(id) {
+      if (id == null) return;
+      sheetNoteId = id;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openNoteEditSheet()">✏️ Edit note</button>
+        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openNoteDeleteSheet()">🗑️ Delete note</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    function openNoteEditSheet() {
+      const j = journal.find(x => Number(x.id) === Number(sheetNoteId));
+      if (!j) { closeSheet(); return; }
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Edit note ✏️</p>
+        <textarea id="edit-note-text" rows="4" style="font-size:16px"
+                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveNoteEdit()">Save 💕</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+      `);
+      document.getElementById('edit-note-text').value = j.text || '';
+    }
+
+    async function saveNoteEdit() {
+      const id = sheetNoteId;
+      const value = document.getElementById('edit-note-text').value.trim();
+      if (!value) { showToast('The note can\'t be empty'); return; }
+      try {
+        await db.collection('journal').doc(String(id)).update({ text: value });
+        closeSheet();
+        showToast('Note updated 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not save. Check your connection.');
+      }
+    }
+
+    function openNoteDeleteSheet() {
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="text-4xl text-center mb-1">🥺</p>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
+        <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmNoteDelete()">Yes, delete it</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+      `);
+    }
+
+    async function confirmNoteDelete() {
+      const id = sheetNoteId;
+      try {
+        await db.collection('journal').doc(String(id)).delete();
+        closeSheet();
+        showToast('Note deleted');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not delete. Check your connection.');
+      }
     }
 
     function openPhotoMenu(id) {
@@ -1629,9 +1694,12 @@
               <p class="font-cursive text-xl leading-snug text-slate-700 safe-text">${escapeHtml(j.text)}</p>
               <div class="flex items-center justify-between gap-3 mt-2">
                 <span class="text-[10px] text-slate-500">${escapeHtml(formatNoteTime(j.id, j.date))}</span>
-                <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
-                  <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
-                </button>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
+                    <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
+                  </button>
+                  <button type="button" class="heart-btn" style="min-width:30px; justify-content:center; color:#64748b" onclick="openNoteMenu(${Number(j.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
+                </div>
               </div>
             </div>
           </div>
