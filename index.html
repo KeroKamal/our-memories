@@ -523,6 +523,9 @@
       padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
     }
     #pass-overlay.open { display: flex; }
+    /* own GPU layer: avoids stale tap areas in the iPhone Home Screen (standalone) app */
+    #pass-overlay, #who-overlay { -webkit-transform: translateZ(0); transform: translateZ(0); }
+    .pw-input { -webkit-appearance: none; touch-action: manipulation; }
     .pw-wrap { position: relative; }
     .pw-input {
       width: 100%; padding: 14px 46px 14px 16px; border-radius: 16px; font-size: 16px;
@@ -2373,6 +2376,30 @@
       if (noFocus) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
       else setTimeout(() => p1.focus(), 150);
     }
+
+    // iPhone Home Screen app: a box that is "focused" without the keyboard ignores taps.
+    // On every tap, if the keyboard isn't up, re-focus the box from inside the tap itself.
+    (function () {
+      function keyboardUp() {
+        const vv = window.visualViewport;
+        return !!vv && vv.height < window.innerHeight - 120;
+      }
+      function wake(e) {
+        const el = e.currentTarget;
+        if (keyboardUp()) return;
+        if (document.activeElement === el) el.blur();
+        el.focus();
+      }
+      document.querySelectorAll('.pw-input').forEach(el => {
+        el.addEventListener('touchend', wake, { passive: true });
+        el.addEventListener('click', wake);
+      });
+      // after everything has loaded, nudge the layout so the first tap lands correctly
+      window.addEventListener('load', () => {
+        const o = document.getElementById('pass-overlay');
+        if (o && o.classList.contains('open')) { o.style.display = 'none'; void o.offsetHeight; o.style.display = ''; }
+      });
+    })();
 
     function closePassScreen() {
       document.getElementById('pass-overlay').classList.remove('open');
