@@ -781,6 +781,19 @@ html[data-color="berry"] {
     .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; }
     .thumb button { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 9999px; background: var(--c500); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
 
+    /* ---------- Replies ---------- */
+    .reply-chip {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px;
+      background: rgb(var(--c500-rgb) / .1); color: var(--c600); font-size: 12px; font-weight: 700; line-height: 1.3;
+    }
+    .reply-chip:active { transform: scale(.96); }
+    .reply-bubble { background: rgb(var(--c500-rgb) / .08); border-radius: 16px; padding: 8px 12px; }
+    .reply-bubble.mine { background: rgb(var(--c500-rgb) / .16); }
+    #sheet-panel { max-height: 88vh; max-height: 88dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    html.dark .reply-chip { background: rgba(255,255,255,.1); color: var(--x8); }
+    html.dark .reply-bubble { background: rgba(255,255,255,.07); }
+    html.dark .reply-bubble.mine { background: rgb(var(--c400-rgb) / .22); }
+
     /* ---------- Emoji reactions ---------- */
     .react-chip {
       display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 9999px;
@@ -1204,6 +1217,12 @@ html[data-color="berry"] {
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showWhoOverlay()">🔄 Switch person</button>
         <button type="button" class="sheet-btn bg-rose-100 text-rose-600" onclick="logoutThisPhone()">🔒 Lock the app</button>
         <p class="text-[11px] text-slate-400 text-center">This phone remembers who you are. Only your password is asked when the app opens.</p>
+      </div>
+
+      <div class="set-card space-y-2">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">App</p>
+        <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="updateApp()">⬇️ Update the app</button>
+        <p class="text-[11px] text-slate-400 text-center">Tap this if the app still looks old after a new version was uploaded.</p>
       </div>
 
       <div class="set-card space-y-2">
@@ -1750,6 +1769,7 @@ html[data-color="berry"] {
     db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
       photos = snapshot.docs.map(doc => doc.data());
       renderPhotos();
+      refreshReplySheet();
       renderOnThisDay();
       // keep the viewer correct if photos change while it is open
       if (document.getElementById('image-modal').classList.contains('open')) {
@@ -1765,6 +1785,7 @@ html[data-color="berry"] {
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
       journal = snapshot.docs.map(doc => doc.data());
       renderJournal();
+      refreshReplySheet();
       renderOnThisDay();
     }, err => console.error('journal listener error', err));
 
@@ -2324,7 +2345,112 @@ html[data-color="berry"] {
       sheetNoteId = null;
       sheetReact = null;
       sheetItemId = null;
+      sheetReplyCol = null;
+      sheetReplyId = null;
       clearInterval(pickTimer);
+    }
+
+    // ---------- Replies (journal notes, photo notes and list items) ----------
+    let sheetReplyCol = null, sheetReplyId = null;
+
+    function replyTarget(col, id) {
+      const arr = col === 'photos' ? photos : col === 'bucket' ? bucket : journal;
+      return arr.find(x => String(x.id) === String(id));
+    }
+
+    function replyChipHtml(col, item) {
+      const n = Array.isArray(item.replies) ? item.replies.length : 0;
+      if (!n) return '';
+      return `<button type="button" class="reply-chip" onclick="event.stopPropagation(); openReplySheet('${col}', ${Number(item.id)})" aria-label="See replies">💬 ${n} ${n === 1 ? 'reply' : 'replies'}</button>`;
+    }
+
+    function openReplySheet(col, id) {
+      sheetReplyCol = col;
+      sheetReplyId = id;
+      renderReplySheet('');
+    }
+
+    function replyTimeText(ts) {
+      const d = new Date(Number(ts));
+      if (isNaN(d)) return '';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function renderReplySheet(draft) {
+      const it = replyTarget(sheetReplyCol, sheetReplyId);
+      if (!it) { closeSheet(); return; }
+      const me = currentUser();
+      const list = (Array.isArray(it.replies) ? it.replies : []).slice().sort((a, b) => Number(a.at || a.id) - Number(b.at || b.id));
+      const original = sheetReplyCol === 'photos' ? (it.caption || 'Our memory ❤') : (it.text || (it.voice ? '🎙️ Voice note' : ''));
+      const thread = list.length ? list.map(r => {
+        const mine = r.by === me;
+        return `
+          <div class="reply-bubble ${mine ? 'mine' : ''} mb-2">
+            <div class="flex items-center justify-between gap-2 mb-0.5">
+              <span class="text-[11px] font-bold text-rose-500">${escapeHtml(personEmoji(r.by))} ${escapeHtml(displayName(r.by))} <span class="font-medium text-slate-400">· ${escapeHtml(replyTimeText(r.at || r.id))}</span></span>
+              ${mine ? `<button type="button" class="text-slate-400 text-xs px-1" onclick="deleteReply(${Number(r.id)})" aria-label="Delete reply"><i class="fas fa-trash-can"></i></button>` : ''}
+            </div>
+            <p class="text-sm font-medium text-slate-700 safe-text">${escapeHtml(r.text)}</p>
+          </div>`;
+      }).join('') : '<p class="text-xs text-slate-400 text-center mb-3">No replies yet. Be the first 💕</p>';
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-2">Replies 💬</p>
+        <p class="text-xs text-slate-400 safe-text caption-clamp-1 text-center mb-3">“${escapeHtml(original)}”</p>
+        <div id="reply-thread">${thread}</div>
+        <textarea id="reply-text" rows="2" maxlength="500" style="font-size:16px" placeholder="Write a reply…"
+                  class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3 mt-1"></textarea>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="sendReply()">Send reply 💕</button>
+        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+      `);
+      document.getElementById('reply-text').value = draft || '';
+      const t = document.getElementById('reply-thread');
+      if (t) t.scrollIntoView({ block: 'nearest' });
+    }
+
+    // when the other person replies while the thread is open: update it and keep what is being typed
+    function refreshReplySheet() {
+      if (!sheetReplyCol || !document.getElementById('sheet-overlay').classList.contains('open')) return;
+      const box = document.getElementById('reply-text');
+      if (!box) return;
+      const draft = box.value;
+      const focused = document.activeElement === box;
+      renderReplySheet(draft);
+      if (focused) document.getElementById('reply-text').focus();
+    }
+
+    async function sendReply() {
+      const me = currentUser();
+      if (!me) { closeSheet(); showWhoOverlay(); return; }
+      const box = document.getElementById('reply-text');
+      const text = box.value.trim();
+      if (!text) { showToast('Write something first 💕'); return; }
+      const reply = { id: Date.now(), by: me, text: text, at: Date.now() };
+      try {
+        await db.collection(sheetReplyCol).doc(String(sheetReplyId)).update({
+          replies: firebase.firestore.FieldValue.arrayUnion(reply)
+        });
+        box.value = '';
+        showToast('Reply sent 💕');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not send. Check your connection.');
+      }
+    }
+
+    async function deleteReply(rid) {
+      const it = replyTarget(sheetReplyCol, sheetReplyId);
+      const r = it && (it.replies || []).find(x => Number(x.id) === Number(rid));
+      if (!r || r.by !== currentUser()) return;
+      try {
+        await db.collection(sheetReplyCol).doc(String(sheetReplyId)).update({
+          replies: firebase.firestore.FieldValue.arrayRemove(r)
+        });
+        showToast('Reply deleted');
+      } catch (err) {
+        console.error(err);
+        showToast('Could not delete. Check your connection.');
+      }
     }
 
     // ---------- Journal notes: edit / delete ----------
@@ -2335,6 +2461,7 @@ html[data-color="berry"] {
       sheetNoteId = id;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('journal', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('journal', ${Number(id)})">${(itemOf('journal', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openNoteEditSheet()">✏️ Edit note</button>
         <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openNoteDeleteSheet()">🗑️ Delete note</button>
@@ -2397,6 +2524,7 @@ html[data-color="berry"] {
       sheetPhotoId = id;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('photos', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('photos', ${Number(id)})">${(itemOf('photos', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openEditSheet()">✏️ Edit note</button>
         <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
@@ -2501,7 +2629,7 @@ html[data-color="berry"] {
                 <button type="button" class="mini-btn plain" onclick="openPhotoMenu(${Number(p.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
               </div>
             </div>
-            ${chips ? `<div class="flex flex-wrap gap-1.5">${chips}</div>` : ''}
+            ${(chips || (p.replies || []).length) ? `<div class="flex flex-wrap gap-1.5">${chips}${replyChipHtml('photos', p)}</div>` : ''}
           </div>
         </div>
       `;
@@ -2612,7 +2740,7 @@ html[data-color="berry"] {
               <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(displayName(j.author))}</div>
             </div>
             <div class="paper-actions">
-              <div class="flex flex-wrap gap-1.5" style="min-width:0">${chips}</div>
+              <div class="flex flex-wrap gap-1.5" style="min-width:0">${chips}${replyChipHtml('journal', j)}</div>
               <div class="flex items-center gap-1 flex-shrink-0">
                 <button type="button" class="heart-btn ${liked ? 'liked' : ''}" onclick="toggleHeart(${Number(j.id)})" aria-label="Heart this note">
                   <span>${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span class="font-bold text-rose-500">${hearts}</span>` : ''}
@@ -2915,6 +3043,24 @@ html[data-color="berry"] {
       }
     }
 
+    // Force the newest version of the page (the Home Screen app keeps an old copy otherwise)
+    async function updateApp() {
+      showToast('Updating… 💕');
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        // re-download this page, bypassing the stored copy, so the next normal launch is new too
+        await fetch(location.pathname + location.search, { cache: 'reload' });
+      } catch (e) { /* reload anyway */ }
+      location.reload();
+    }
+
     // Lock the app: ask for the password again (the phone still remembers who you are)
     function logoutThisPhone() {
       appUnlocked = false;
@@ -3189,6 +3335,7 @@ html[data-color="berry"] {
       bucketLoaded = true;
       bucketError = false;
       renderBucket();
+      refreshReplySheet();
     }, err => {
       console.error('list listener error', err);
       bucketLoaded = true;
@@ -3263,6 +3410,7 @@ html[data-color="berry"] {
       sheetItemId = id;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('bucket', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openBucketEditSheet()">✏️ Edit</button>
         <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openBucketDeleteSheet()">🗑️ Delete</button>
         <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
@@ -3394,6 +3542,7 @@ html[data-color="berry"] {
           <div class="flex-1" style="min-width:0">
             <p class="todo-text text-sm font-semibold text-slate-700 safe-text">${escapeHtml(it.text)}</p>
             <p class="text-[10px] text-slate-400 mt-0.5">${meta}</p>
+            ${(it.replies || []).length ? `<div class="mt-1.5">${replyChipHtml('bucket', it)}</div>` : ''}
           </div>
           <button type="button" class="mini-btn plain" onclick="event.stopPropagation(); openBucketMenu(${Number(it.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
         </div>
