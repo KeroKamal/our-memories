@@ -1019,6 +1019,8 @@ html[data-color="berry"] {
         <h1 id="app-title" class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
       <div class="flex items-center gap-2">
+        <button id="notif-btn" type="button" onclick="toggleNotifications()" aria-label="Notifications"
+                class="flex items-center justify-center w-9 h-9 bg-rose-50 border border-rose-100 rounded-full text-base leading-none active:scale-95 transition"><i class="fas fa-bell text-sm" style="color:#eab308"></i><span id="notif-badge"></span></button>
         <button id="theme-btn" type="button" onclick="toggleTheme()" aria-label="Switch to dark mode"
                 class="flex items-center justify-center w-9 h-9 bg-rose-50 border border-rose-100 rounded-full text-base leading-none active:scale-95 transition">🌙</button>
         <button id="who-chip" type="button" onclick="showWhoOverlay()" aria-label="Switch person"
@@ -4262,5 +4264,363 @@ html[data-color="berry"] {
       });
     });
   </script>
+
+  <!-- ===================== Notifications (added) ===================== -->
+  <style>
+    #notif-btn { position: relative; }
+    #notif-btn.ring i { animation: notifRing .8s ease; transform-origin: 50% 0; }
+    @keyframes notifRing { 0%,100% { transform: rotate(0); } 20% { transform: rotate(18deg); } 40% { transform: rotate(-16deg); } 60% { transform: rotate(10deg); } 80% { transform: rotate(-6deg); } }
+    #notif-badge {
+      position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px;
+      border-radius: 999px; background: var(--c500); color: #fff; font-size: 10px; font-weight: 700;
+      line-height: 17px; text-align: center; display: none; box-shadow: 0 0 0 2px #fff;
+    }
+    html.dark #notif-badge { box-shadow: 0 0 0 2px var(--x9); }
+    #notif-backdrop { position: fixed; inset: 0; z-index: 59; display: none; }
+    #notif-backdrop.open { display: block; }
+    #notif-panel {
+      position: fixed; z-index: 60; display: none; flex-direction: column;
+      top: calc(env(safe-area-inset-top) + 3.7rem);
+      right: calc(0.75rem + env(safe-area-inset-right));
+      width: min(22rem, calc(100vw - 1.5rem)); max-height: 70vh;
+      background: #fff; border: 1px solid var(--c100); border-radius: 1.1rem;
+      box-shadow: 0 12px 40px rgba(0,0,0,.18); overflow: hidden;
+    }
+    #notif-panel.open { display: flex; }
+    html.dark #notif-panel { background: var(--x9); border-color: var(--x11); }
+    .notif-head { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--c100); }
+    html.dark .notif-head { border-color: var(--x11); }
+    .notif-head b { font-size: .95rem; color: var(--c600); }
+    html.dark .notif-head b { color: var(--x8); }
+    .notif-clear { font-size: .75rem; font-weight: 700; color: var(--c500); background: none; border: 0; padding: .25rem .5rem; border-radius: 999px; }
+    .notif-clear:active { transform: scale(.95); }
+    #notif-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .notif-empty { padding: 2rem 1rem; text-align: center; font-size: .85rem; color: #94a3b8; }
+    html.dark .notif-empty { color: var(--x13); }
+    .notif-item { display: flex; gap: .65rem; width: 100%; text-align: left; padding: .7rem 1rem; background: none; border: 0; border-bottom: 1px solid var(--c50); }
+    html.dark .notif-item { border-color: var(--x11); }
+    .notif-item.unread { background: rgb(var(--c50-rgb) / .9); }
+    html.dark .notif-item.unread { background: rgb(var(--x11-rgb) / .8); }
+    .notif-ico { flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: var(--c100); display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+    html.dark .notif-ico { background: var(--x11); }
+    .notif-txt { min-width: 0; flex: 1; font-size: .82rem; line-height: 1.25rem; color: #334155; word-break: break-word; }
+    html.dark .notif-txt { color: var(--x8); }
+    .notif-sub { display: block; font-size: .75rem; color: #94a3b8; font-style: italic; }
+    html.dark .notif-sub { color: var(--x13); }
+    .notif-flash { animation: notifFlash 2.6s ease; }
+    @keyframes notifFlash {
+      0%, 100% { box-shadow: 0 0 0 0 rgb(var(--c400-rgb) / 0); }
+      15%, 65% { box-shadow: 0 0 0 4px rgb(var(--c400-rgb) / .8), 0 0 26px rgb(var(--c400-rgb) / .55); }
+    }
+    .notif-time { display: block; font-size: .68rem; color: var(--c400); font-weight: 600; margin-top: .1rem; }
+  </style>
+
+  <script>
+  (function () {
+    'use strict';
+    var LIST_KEY = 'notifList', BASE_KEY = 'notifBase', READ_KEY = 'notifReadAt', MAX_KEEP = 60;
+
+    function sget(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function sset(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    function me() { try { return currentUser(); } catch (e) { return null; } }
+    function other(u) { return u === 'Kero' ? 'Tota' : u === 'Tota' ? 'Kero' : null; }
+    function nm(id) { try { return displayName(id); } catch (e) { return id || ''; } }
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function clip(s, n) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+    function hs(s) { s = String(s == null ? '' : s); var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; }
+    function load(k, fb) { try { var v = JSON.parse(sget(k) || 'null'); return v == null ? fb : v; } catch (e) { return fb; } }
+
+    var SCREEN = { photos: 'photos', journal: 'journal', bucket: 'list', dates: 'dates' };
+    var LIST = load(LIST_KEY, []);
+    var BASE = load(BASE_KEY, {});
+    var readAt = Number(sget(READ_KEY)) || 0;
+    var seenOnce = {};
+    var selfActs = [];
+
+    // ---------- remember what I did myself (edits / deletes have no "who" stored) ----------
+    function markSelf(key) { selfActs.push({ key: key, t: Date.now() }); }
+    function consumeSelf(key) {
+      var now = Date.now();
+      selfActs = selfActs.filter(function (a) { return now - a.t < 20000; });
+      for (var i = 0; i < selfActs.length; i++) if (selfActs[i].key === key) { selfActs.splice(i, 1); return true; }
+      return false;
+    }
+    [['saveNoteEdit', 'journal:edit'], ['confirmNoteDelete', 'journal:del'],
+     ['saveCaption', 'photos:edit'], ['confirmDelete', 'photos:del'],
+     ['saveBucketEdit', 'bucket:edit'], ['confirmBucketDelete', 'bucket:del'],
+     ['saveDate', 'dates:edit'], ['confirmDateDelete', 'dates:del']].forEach(function (p) {
+      var orig = window[p[0]];
+      if (typeof orig !== 'function') return;
+      window[p[0]] = function () { markSelf(p[1]); return orig.apply(this, arguments); };
+    });
+
+    // ---------- helpers to describe things ----------
+    function ownerOf(col, d) { return col === 'photos' ? d.author : col === 'journal' ? d.author : col === 'bucket' ? d.addedBy : d.by; }
+    function kindName(col, type) {
+      if (col === 'photos') return 'memory';
+      if (col === 'journal') return 'note';
+      if (col === 'bucket') return type === 'date' ? 'date idea' : 'list item';
+      return 'date';
+    }
+    function iconFor(col) { return col === 'photos' ? '📸' : col === 'journal' ? '📝' : col === 'bucket' ? '✨' : '📅'; }
+    function whose(owner, actor) {
+      var m = me();
+      if (owner && owner === m) return 'your';
+      if (owner && owner === actor) return 'their own';
+      if (owner) return nm(owner) + "'s";
+      return 'a';
+    }
+    function likedNow(col, id) {
+      try {
+        if (col === 'journal') return journalLiked.has(String(id));
+        if (col === 'photos') return photoLiked.has(String(id));
+      } catch (e) {}
+      return false;
+    }
+    function sigOf(col, d) {
+      var s = { o: ownerOf(col, d) || '', ty: d.type || '' };
+      if (col === 'journal') s.t = hs(d.text);
+      else if (col === 'photos') s.t = hs(d.caption);
+      else if (col === 'bucket') { s.t = hs(d.text); s.d = !!d.done; }
+      else s.t = hs(d.title + '|' + d.date + '|' + d.repeat);
+      if (col === 'photos' || col === 'journal') {
+        s.h = Number(d.hearts) || 0;
+        s.r = Object.assign({}, d.reactions || {});
+        s.l = likedNow(col, d.id);
+      }
+      if (col !== 'dates') {
+        s.rp = {};
+        (d.replies || []).forEach(function (r) { s.rp[r.id] = { by: r.by || '', r: Object.assign({}, r.reactions || {}) }; });
+      }
+      return s;
+    }
+
+    // ---------- compare the new data with what this phone saw last time ----------
+    function diffCol(col, prev, arr) {
+      var ev = [], next = {}, m = me(), added = {};
+      function push(actor, icon, msg, sub, ref) {
+        ref = ref || {};
+        ev.push({ actor: actor || '', icon: icon, msg: msg, sub: sub || '', col: col,
+                  item: ref.item != null ? String(ref.item) : '', rid: ref.rid != null ? String(ref.rid) : '', why: ref.why || '' });
+      }
+
+      arr.forEach(function (d) {
+        var id = String(d.id), cur = sigOf(col, d), p = prev[id], k = kindName(col, d.type);
+        next[id] = cur;
+
+        if (!p) {                                            // brand new item
+          var who = cur.o;
+          if (who && who !== m) {
+            var key = who + '|' + k;
+            (added[key] = added[key] || { actor: who, k: k, items: [] }).items.push(d);
+          }
+          return;
+        }
+
+        if (cur.r) {                                         // someone reacted to the item
+          Object.keys(cur.r).forEach(function (name) {
+            var e = cur.r[name];
+            if (name !== m && e && p.r && p.r[name] !== e) push(name, e, nm(name) + ' reacted ' + e + ' to ' + whose(cur.o, name) + ' ' + k, '', { item: id, why: 'react' });
+          });
+        }
+
+        if (cur.h != null && m) {                            // someone hearted it (count goes up, minus my own heart)
+          var partnerDelta = (cur.h - (p.h || 0)) - ((cur.l ? 1 : 0) - (p.l ? 1 : 0));
+          if (partnerDelta > 0) { var o1 = other(m); push(o1, '❤️', nm(o1) + ' hearted ' + whose(cur.o, o1) + ' ' + k, '', { item: id, why: 'heart' }); }
+        }
+
+        if (cur.rp) {                                        // replies and reactions on replies
+          Object.keys(cur.rp).forEach(function (rid) {
+            var c = cur.rp[rid], pr = p.rp && p.rp[rid];
+            if (!pr) {
+              if (c.by && c.by !== m) {
+                var rep = (d.replies || []).filter(function (x) { return String(x.id) === rid; })[0];
+                push(c.by, '💬', nm(c.by) + ' replied to ' + whose(cur.o, c.by) + ' ' + k, clip(rep && rep.text, 60), { item: id, rid: rid, why: 'reply' });
+              }
+              return;
+            }
+            Object.keys(c.r).forEach(function (name) {
+              var e = c.r[name];
+              if (name !== m && e && pr.r[name] !== e) {
+                var w = c.by === m ? 'your' : c.by === name ? 'their own' : (c.by ? nm(c.by) + "'s" : 'a');
+                push(name, e, nm(name) + ' reacted ' + e + ' to ' + w + ' reply', '', { item: id, rid: rid, why: 'replyreact' });
+              }
+            });
+          });
+        }
+
+        if (col === 'bucket' && !p.d && cur.d && d.doneBy && d.doneBy !== m) {   // finished a list item
+          push(d.doneBy, '✅', nm(d.doneBy) + ' marked "' + clip(d.text, 40) + '" as done', '', { item: id, why: 'done' });
+        }
+
+        if (cur.t !== p.t && !consumeSelf(col + ':edit') && m) {                // edited by the other person
+          var o2 = other(m);
+          push(o2, '✏️', nm(o2) + (col === 'photos' ? ' changed the caption of ' : ' edited ') + whose(cur.o, o2) + ' ' + k,
+               clip(d.text || d.caption || d.title, 60), { item: id, why: 'edit' });
+        }
+      });
+
+      Object.keys(added).forEach(function (key) {              // group "added" so 5 photos = one notification
+        var g = added[key], n = g.items.length, d0 = g.items[0];
+        var what = n === 1 ? 'a new ' + g.k : n + ' new ' + (g.k === 'memory' ? 'memories' : g.k + 's');
+        var sub = n === 1 ? clip(d0.text || d0.caption || d0.title, 60) : '';
+        push(g.actor, iconFor(col), nm(g.actor) + ' added ' + what, sub, { item: d0.id, why: 'added' });
+      });
+
+      Object.keys(prev).forEach(function (id) {                // deleted by the other person
+        if (next[id]) return;
+        if (consumeSelf(col + ':del') || !m) return;
+        var o3 = other(m), ps = prev[id];
+        push(o3, '🗑️', nm(o3) + ' deleted ' + whose(ps.o, o3) + ' ' + kindName(col, ps.ty), '', { item: id, why: 'del' });
+      });
+
+      return { events: ev, next: next };
+    }
+
+    function process(col, arr) {
+      var prev = BASE[col];
+      var res = diffCol(col, prev || {}, arr);
+      BASE[col] = res.next;
+      sset(BASE_KEY, JSON.stringify(BASE));
+      var live = !!seenOnce[col];
+      seenOnce[col] = true;
+      if (prev === undefined) return;                        // first time ever on this phone: just remember, no spam
+      if (!res.events.length) return;
+      var now = Date.now();
+      res.events.slice(0, 30).forEach(function (e, i) {
+        e.t = now + i; e.id = now + '-' + i + '-' + Math.random().toString(36).slice(2, 6);
+        LIST.unshift(e);
+      });
+      LIST = LIST.slice(0, MAX_KEEP);
+      sset(LIST_KEY, JSON.stringify(LIST));
+      render();
+      var bell = document.getElementById('notif-btn');
+      if (bell) { bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring'); }
+      if (live && !panelOpen() && res.events.length === 1 && typeof showToast === 'function') showToast(res.events[0].icon + ' ' + res.events[0].msg);
+    }
+
+    // ---------- the bell + panel ----------
+    var backdrop = document.createElement('div'); backdrop.id = 'notif-backdrop';
+    var panel = document.createElement('div'); panel.id = 'notif-panel';
+    panel.innerHTML = '<div class="notif-head"><b>Notifications 🔔</b><button type="button" class="notif-clear" id="notif-clear">Clear all</button></div><div id="notif-list"></div>';
+    document.body.appendChild(backdrop); document.body.appendChild(panel);
+
+    function visible() { var m = me(); return LIST.filter(function (n) { return !m || n.actor !== m; }); }
+    function panelOpen() { return panel.classList.contains('open'); }
+    function ago(t) {
+      var s = Math.max(0, Math.round((Date.now() - t) / 1000));
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + ' min ago';
+      if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+      if (s < 172800) return 'Yesterday';
+      return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    function render() {
+      var list = visible(), unread = list.filter(function (n) { return n.t > readAt; }).length;
+      var badge = document.getElementById('notif-badge');
+      if (badge) { badge.textContent = unread > 9 ? '9+' : String(unread); badge.style.display = unread ? 'block' : 'none'; }
+      var box = document.getElementById('notif-list');
+      if (!box) return;
+      if (!list.length) { box.innerHTML = '<div class="notif-empty">No notifications yet 💕<br>You\'ll see what the two of you do here.</div>'; return; }
+      box.innerHTML = list.map(function (n) {
+        return '<button type="button" class="notif-item ' + (n.t > readAt ? 'unread' : '') + '" data-id="' + esc(n.id) + '">' +
+          '<span class="notif-ico">' + esc(n.icon) + '</span>' +
+          '<span class="notif-txt">' + esc(n.msg) + (n.sub ? '<span class="notif-sub">' + esc(n.sub) + '</span>' : '') +
+          '<span class="notif-time">' + ago(n.t) + '</span></span></button>';
+      }).join('');
+    }
+    function openPanel() {
+      render();
+      panel.classList.add('open'); backdrop.classList.add('open');
+      readAt = Date.now(); sset(READ_KEY, String(readAt));      // highlighted rows stay highlighted until you close it
+      var badge = document.getElementById('notif-badge'); if (badge) badge.style.display = 'none';
+    }
+    function closePanel() { panel.classList.remove('open'); backdrop.classList.remove('open'); render(); }
+    window.toggleNotifications = function () { panelOpen() ? closePanel() : openPanel(); };
+
+    backdrop.addEventListener('click', closePanel);
+    document.getElementById('notif-clear').addEventListener('click', function () {
+      var m = me(); LIST = LIST.filter(function (n) { return m && n.actor === m; });
+      sset(LIST_KEY, JSON.stringify(LIST)); render();
+    });
+    // ---------- open the exact note / memory / comment a notification is about ----------
+    function flash(el) {
+      if (!el) return;
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+      el.classList.remove('notif-flash'); void el.offsetWidth; el.classList.add('notif-flash');
+      setTimeout(function () { el.classList.remove('notif-flash'); }, 2700);
+    }
+    function itemOf2(col, id) { return getArr(col).filter(function (x) { return String(x.id) === String(id); })[0]; }
+    function findEl(col, id) {
+      if (col === 'journal') return document.getElementById('note-' + Number(id));
+      if (col === 'bucket') return document.querySelector('.todo-row[onclick="toggleBucket(' + Number(id) + ')"]');
+      if (col === 'dates') {
+        var el = document.querySelector('#dates-list [onclick="openDateMenu(' + Number(id) + ')"]');
+        while (el && el.parentElement && el.parentElement.id !== 'dates-list') el = el.parentElement;
+        return el;
+      }
+      return null;
+    }
+    function flashReply(col, id, rid) {
+      var it = itemOf2(col, id); if (!it) return;
+      var list = (it.replies || []).slice().sort(function (a, b) { return Number(a.at || a.id) - Number(b.at || b.id); });
+      var idx = -1; list.forEach(function (r, i) { if (String(r.id) === String(rid)) idx = i; });
+      var bubbles = document.querySelectorAll('#reply-thread .reply-bubble');
+      if (idx > -1 && bubbles[idx]) flash(bubbles[idx]);
+    }
+    function openReplies(col, id, rid) {
+      if (typeof openReplySheet !== 'function') return;
+      openReplySheet(col, Number(id));
+      setTimeout(function () { flashReply(col, id, rid); }, 150);
+    }
+    function go(n) {
+      var col = n.col, id = n.item, wantsReplies = n.why === 'reply' || n.why === 'replyreact';
+      try { if (typeof closeSheet === 'function') closeSheet(); } catch (e) {}
+      var modal = document.getElementById('image-modal');
+      try { if (modal && modal.classList.contains('open') && typeof closeModal === 'function') closeModal(); } catch (e) {}
+      try { switchScreen(SCREEN[col] || 'photos'); } catch (e) {}
+      if (n.why === 'del' || !id || !itemOf2(col, id)) {
+        if (typeof showToast === 'function') showToast(n.why === 'del' ? 'That one was deleted 🗑️' : 'This is no longer here');
+        return;
+      }
+      if (col === 'photos') {                                  // show the memory itself, with the comments on top if it is about a comment
+        setTimeout(function () {
+          try { openModalById(Number(id)); } catch (e) {}
+          if (wantsReplies) setTimeout(function () { openReplies(col, id, n.rid); }, 250);
+        }, 350);
+        return;
+      }
+      if (col === 'bucket') { try { if (bucketFilter !== 'all') setBucketFilter('all'); } catch (e) {} }
+      setTimeout(function () {
+        flash(findEl(col, id));
+        if (wantsReplies && col !== 'dates') setTimeout(function () { openReplies(col, id, n.rid); }, 700);
+      }, 380);
+    }
+
+    panel.addEventListener('click', function (e) {
+      var row = e.target.closest ? e.target.closest('.notif-item') : null;
+      if (!row) return;
+      var n = LIST.filter(function (x) { return x.id === row.getAttribute('data-id'); })[0];
+      closePanel();
+      if (n) go(n);
+    });
+
+    // ---------- watch your existing data (no extra database reads) ----------
+    var refs = { photos: photos, journal: journal, bucket: bucket, dates: datesList };
+    function getArr(col) { return col === 'photos' ? photos : col === 'journal' ? journal : col === 'bucket' ? bucket : datesList; }
+    function loaded(col) { return col === 'bucket' ? bucketLoaded : col === 'dates' ? datesLoaded : true; }
+    setInterval(function () {
+      Object.keys(refs).forEach(function (col) {
+        var a = getArr(col);
+        if (a === refs[col]) return;
+        refs[col] = a;
+        if (loaded(col)) process(col, a);
+      });
+    }, 600);
+
+    render();
+  })();
+  </script>
+  <!-- =================== end Notifications (added) =================== -->
 </body>
 </html>
