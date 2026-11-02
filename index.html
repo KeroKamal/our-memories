@@ -2487,14 +2487,16 @@ html[data-color="berry"] {
       const text = box.value.trim();
       if (!text) { showToast('Write something first 💕'); return; }
       const reply = { id: Date.now(), by: me, text: text, at: Date.now() };
+      box.value = '';                       // empty the box right away (the thread redraws itself when the reply arrives)
       try {
         await db.collection(sheetReplyCol).doc(String(sheetReplyId)).update({
           replies: firebase.firestore.FieldValue.arrayUnion(reply)
         });
-        box.value = '';
         showToast('Reply sent 💕');
       } catch (err) {
         console.error(err);
+        const b2 = document.getElementById('reply-text');
+        if (b2 && !b2.value) b2.value = text;   // sending failed: give the text back
         showToast('Could not send. Check your connection.');
       }
     }
