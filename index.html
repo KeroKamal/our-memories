@@ -4626,13 +4626,11 @@ html[data-color="berry"] {
   <!-- ===================== Phone push notifications (added) ===================== -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js"></script>
   <style>
-    .push-row { padding: .65rem 1rem; border-bottom: 1px solid var(--c100); font-size: .78rem; line-height: 1.2rem; color: #475569; }
-    html.dark .push-row { border-color: var(--x11); color: var(--x12); }
-    .push-row p { margin: 0; }
-    .push-row .push-on { color: #16a34a; font-weight: 700; }
-    .push-btn { width: 100%; padding: .55rem .8rem; border: 0; border-radius: 999px; background: var(--c500); color: #fff; font-weight: 700; font-size: .8rem; }
-    .push-btn:active { transform: scale(.97); }
-    .push-btn:disabled { opacity: .6; }
+    .push-row { margin-top: .5rem; }
+    .push-row p { margin: 0; text-align: center; font-size: 11px; line-height: 1.1rem; color: #94a3b8; }
+    html.dark .push-row p { color: var(--x13); }
+    .push-row p.push-on { font-size: 13px; color: #16a34a; font-weight: 700; padding: .35rem 0; }
+    .push-row .sheet-btn:disabled { opacity: .6; }
   </style>
   <script>
   (function () {
@@ -4651,12 +4649,11 @@ html[data-color="berry"] {
     var standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     var supported = ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
 
-    var panel = document.getElementById('notif-panel');
-    var head = panel && panel.querySelector('.notif-head');
-    if (!panel || !head) return;
+    var updateBtn = document.querySelector('#screen-settings button[onclick="updateApp()"]');
+    if (!updateBtn) return;
     var row = document.createElement('div');
     row.id = 'push-row'; row.className = 'push-row';
-    head.insertAdjacentElement('afterend', row);
+    updateBtn.insertAdjacentElement('afterend', row);
 
     function paint() {
       if (!supported) {
@@ -4673,7 +4670,7 @@ html[data-color="berry"] {
         row.innerHTML = '<p class="push-on">✅ Phone notifications are on</p>';
         return;
       }
-      row.innerHTML = '<button type="button" class="push-btn" id="push-btn">🔔 Turn on phone notifications</button>';
+      row.innerHTML = '<button type="button" class="sheet-btn bg-rose-50 text-rose-600" id="push-btn">🔔 Turn on phone notifications</button>';
       document.getElementById('push-btn').addEventListener('click', enable);
     }
 
