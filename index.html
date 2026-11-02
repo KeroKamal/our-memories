@@ -788,6 +788,20 @@ html[data-color="berry"] {
     .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; }
     .thumb button { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 9999px; background: var(--c500); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
 
+    /* ---------- Notifications ---------- */
+    .bell-badge {
+      position: absolute; top: -4px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9999px;
+      background: var(--c600); color: #fff; font-size: 10px; font-weight: 800; line-height: 17px; text-align: center;
+      box-shadow: 0 0 0 2px #fff;
+    }
+    html.dark .bell-badge { box-shadow: 0 0 0 2px var(--x9); }
+    .notif-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border-radius: 16px; margin-bottom: 6px; background: rgb(var(--c500-rgb) / .05); }
+    .notif-row.new { background: rgb(var(--c500-rgb) / .16); }
+    .notif-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 9999px; margin-top: 6px; background: var(--c500); }
+    .notif-row:not(.new) .notif-dot { background: transparent; }
+    html.dark .notif-row { background: rgba(255,255,255,.05); }
+    html.dark .notif-row.new { background: rgb(var(--c400-rgb) / .22); }
+
     /* ---------- Replies ---------- */
     .reply-chip {
       display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px;
@@ -1019,6 +1033,8 @@ html[data-color="berry"] {
         <h1 id="app-title" class="font-cursive text-2xl font-bold text-rose-600">Kero & Tota</h1>
       </div>
       <div class="flex items-center gap-2">
+        <button id="bell-btn" type="button" onclick="openNotifSheet()" aria-label="Notifications"
+                class="relative flex items-center justify-center w-9 h-9 bg-rose-50 border border-rose-100 rounded-full text-base leading-none active:scale-95 transition">🔔<span id="bell-badge" class="bell-badge hidden"></span></button>
         <button id="theme-btn" type="button" onclick="toggleTheme()" aria-label="Switch to dark mode"
                 class="flex items-center justify-center w-9 h-9 bg-rose-50 border border-rose-100 rounded-full text-base leading-none active:scale-95 transition">🌙</button>
         <button id="who-chip" type="button" onclick="showWhoOverlay()" aria-label="Switch person"
@@ -1240,13 +1256,11 @@ html[data-color="berry"] {
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account</p>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="showWhoOverlay()">🔄 Switch person</button>
         <button type="button" class="sheet-btn bg-rose-100 text-rose-600" onclick="logoutThisPhone()">🔒 Lock the app</button>
-        <p class="text-[11px] text-slate-400 text-center">This phone remembers who you are. Only your password is asked when the app opens.</p>
       </div>
 
       <div class="set-card space-y-2">
         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">App</p>
         <button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="updateApp()">⬇️ Update the app</button>
-        <p class="text-[11px] text-slate-400 text-center">Tap this if the app still looks old after a new version was uploaded.</p>
       </div>
 
       <div class="set-card space-y-2">
@@ -2106,6 +2120,7 @@ html[data-color="berry"] {
         discardVoice('photo');
         clearSelectedFile();
         showToast(total > 1 ? `${uploaded} memories added 💕` : 'Memory added 💕');
+        notify(total > 1 ? `${senderName()} added ${uploaded} new memories 📸` : `${senderName()} added a new memory 📸`, 'photos', baseId + total - 1);
         setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
       } else {
         document.getElementById('upload-progress').classList.add('hidden');
@@ -2199,6 +2214,7 @@ html[data-color="berry"] {
         await db.collection('journal').doc(key).update({
           hearts: firebase.firestore.FieldValue.increment(wasLiked ? -1 : 1)
         });
+        if (!wasLiked) notifyOwner('journal', key, 'loved', ' ❤️');
       } catch (err) {
         console.error('heart error', err);
         // undo if saving failed
@@ -2233,6 +2249,7 @@ html[data-color="berry"] {
       try {
         if (voiceState.journal.data) { newEntry.voice = voiceState.journal.data; newEntry.voiceDur = voiceState.journal.dur; }
         await db.collection('journal').doc(newEntry.id.toString()).set(newEntry);
+        notify(`${senderName()} wrote a new journal note 💌`, 'journal', newEntry.id);
         textInput.value = '';
         discardVoice('journal');
         journalMood = null;
@@ -2289,6 +2306,7 @@ html[data-color="berry"] {
         await db.collection('photos').doc(key).update({
           hearts: firebase.firestore.FieldValue.increment(wasLiked ? -1 : 1)
         });
+        if (!wasLiked) notifyOwner('photos', key, 'loved', ' ❤️');
       } catch (err) {
         console.error('photo heart error', err);
         // undo if saving failed
@@ -2374,6 +2392,7 @@ html[data-color="berry"] {
       sheetReplyId = null;
       replyPickerId = null;
       sheetDateId = null;
+      notifSheetOpen = false;
       clearInterval(pickTimer);
     }
 
@@ -2412,6 +2431,9 @@ html[data-color="berry"] {
       if (!me) { closeSheet(); showWhoOverlay(); return; }
       replyPickerId = null;
       const col = sheetReplyCol, id = sheetReplyId;
+      const beforeItem = replyTarget(col, id);
+      const beforeReply = beforeItem && (beforeItem.replies || []).find(x => Number(x.id) === Number(rid));
+      const adding = !(beforeReply && beforeReply.reactions && beforeReply.reactions[me] === emoji);
       try {
         const ref = db.collection(col).doc(String(id));
         await db.runTransaction(async tx => {
@@ -2427,6 +2449,9 @@ html[data-color="berry"] {
           });
           tx.update(ref, { replies: list });
         });
+        if (adding && beforeReply && beforeReply.by && beforeReply.by !== me) {
+          notify(`${senderName()} reacted ${emoji} to your reply`, screenOf(col), col === 'bucket' ? null : id);
+        }
       } catch (err) {
         console.error(err);
         showToast('Could not react. Check your connection.');
@@ -2512,6 +2537,7 @@ html[data-color="berry"] {
           replies: firebase.firestore.FieldValue.arrayUnion(reply)
         });
         showToast('Reply sent 💕');
+        notifyReply(sheetReplyCol, sheetReplyId, text);
       } catch (err) {
         console.error(err);
         const b2 = document.getElementById('reply-text');
@@ -3059,6 +3085,7 @@ html[data-color="berry"] {
       updateSettingsUi();
       closePassScreen();
       hideWhoOverlay();
+      startNotifs();
     }
 
     // ---------- Settings ----------
@@ -3362,6 +3389,7 @@ html[data-color="berry"] {
         await db.collection(col).doc(String(id)).update({
           ['reactions.' + me]: remove ? firebase.firestore.FieldValue.delete() : emoji
         });
+        if (!remove) notifyOwner(col, id, 'reacted ' + emoji + ' to', '');
       } catch (err) {
         console.error('reaction error', err);
         showToast('Could not save your reaction. Check your connection.');
@@ -3455,6 +3483,7 @@ html[data-color="berry"] {
       };
       try {
         await db.collection('bucket').doc(String(item.id)).set(item);
+        notify(`${senderName()} added “${text.slice(0, 50)}” to Our list ✨`, 'list', null);
         if (!textOverride) input.value = '';
         showToast(type === 'date' ? 'Date idea added 🌹' : 'Added to your bucket list ✨');
       } catch (err) {
@@ -3480,7 +3509,7 @@ html[data-color="berry"] {
           doneBy: nowDone ? me : '',
           doneAt: nowDone ? Date.now() : 0
         });
-        if (nowDone) showToast('Ticked off together 🎉');
+        if (nowDone) { showToast('Ticked off together 🎉'); notify(`${senderName()} ticked off “${String(it.text).slice(0, 50)}” 🎉`, 'list', null); }
       } catch (err) {
         console.error(err);
         showToast('Could not save. Check your connection.');
@@ -4205,6 +4234,7 @@ html[data-color="berry"] {
         } else {
           const item = { id: Date.now(), date: iso, title: title, repeat: repeat, by: currentUser() || '' };
           await datesRef().set({ items: firebase.firestore.FieldValue.arrayUnion(item) }, { merge: true });
+          notify(`${senderName()} added a date: ${title} 📅`, 'dates', null);
         }
         closeSheet();
         showToast('Date saved 💕');
@@ -4238,6 +4268,132 @@ html[data-color="berry"] {
         console.error(e);
         showToast('Could not delete. Check your connection.');
       }
+    }
+
+    // =====================================================================
+    // Notifications: every action tells the other person (collection "notifs")
+    // =====================================================================
+    let notifs = [], notifUnsub = null, notifFirst = true, notifSheetOpen = false, notifNewIds = new Set();
+
+    function partnerOf(me) { return me === 'Kero' ? 'Tota' : me === 'Tota' ? 'Kero' : null; }
+    function senderName() { const me = currentUser(); return `${personEmoji(me)} ${displayName(me)}`; }
+    function screenOf(col) { return col === 'photos' ? 'photos' : col === 'bucket' ? 'list' : 'journal'; }
+    function nounOf(col) { return col === 'photos' ? 'memory' : col === 'bucket' ? 'list item' : 'note'; }
+
+    function notify(text, screen, ref) {
+      const me = currentUser(), to = partnerOf(me);
+      if (!to) return;
+      const at = Date.now();
+      const id = at + '-' + Math.floor(Math.random() * 1e6);
+      db.collection('notifs').doc(id).set({ id: id, to: to, from: me, text: text, screen: screen || 'photos', ref: ref == null ? null : ref, at: at, read: false })
+        .catch(err => console.error('notify error', err));
+    }
+
+    // "Tota reacted ❤️ to your note": only when the item is the other person's
+    function notifyOwner(col, id, action, suffix) {
+      const me = currentUser();
+      const item = col === 'photos' ? photos.find(x => String(x.id) === String(id))
+                 : col === 'bucket' ? bucket.find(x => String(x.id) === String(id))
+                 : journal.find(x => String(x.id) === String(id));
+      if (!item) return;
+      const owner = item.author || item.addedBy;
+      if (!owner || owner === me) return;
+      notify(`${senderName()} ${action} your ${nounOf(col)}${suffix || ''}`, screenOf(col), col === 'bucket' ? null : id);
+    }
+
+    function notifyReply(col, id, text) {
+      const me = currentUser();
+      const item = replyTarget(col, id);
+      const owner = item && (item.author || item.addedBy);
+      const snip = String(text).length > 60 ? String(text).slice(0, 60) + '…' : String(text);
+      const head = owner && owner !== me ? `${senderName()} replied to your ${nounOf(col)}` : `${senderName()} replied`;
+      notify(`${head}: “${snip}” 💬`, screenOf(col), col === 'bucket' ? null : id);
+    }
+
+    function updateBell() {
+      const n = notifs.filter(x => !x.read).length;
+      const b = document.getElementById('bell-badge');
+      if (b) { b.textContent = n > 9 ? '9+' : String(n); b.classList.toggle('hidden', n === 0); }
+      try { if (navigator.setAppBadge) { n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } } catch (e) {}
+    }
+
+    function startNotifs() {
+      const me = currentUser();
+      if (notifUnsub) { notifUnsub(); notifUnsub = null; }
+      notifs = []; notifFirst = true; updateBell();
+      if (!me) return;
+      notifUnsub = db.collection('notifs').where('to', '==', me).onSnapshot(snap => {
+        const all = snap.docs.map(d => d.data()).sort((a, b) => b.at - a.at);
+        if (notifFirst) {
+          const unread = all.filter(x => !x.read).length;
+          if (unread) showToast(`🔔 ${unread} new ${unread === 1 ? 'notification' : 'notifications'}`);
+          // tidy up: remove my notifications older than 30 days
+          all.filter(x => Date.now() - x.at > 30 * 86400000).forEach(x => db.collection('notifs').doc(String(x.id)).delete().catch(() => {}));
+        } else {
+          snap.docChanges().forEach(ch => {
+            if (ch.type === 'added') { const n = ch.doc.data(); if (!n.read && !ch.doc.metadata.hasPendingWrites) showToast(n.text); }
+          });
+        }
+        notifFirst = false;
+        notifs = all.slice(0, 60);
+        updateBell();
+        if (notifSheetOpen) renderNotifSheet();
+      }, err => console.error('notifs listener error', err));
+    }
+
+    function openNotifSheet() {
+      if (!currentUser()) { showWhoOverlay(); return; }
+      notifNewIds = new Set(notifs.filter(x => !x.read).map(x => String(x.id)));
+      notifSheetOpen = true;
+      renderNotifSheet();
+      // mark everything as read now that it is on screen
+      const unread = notifs.filter(x => !x.read);
+      if (unread.length) {
+        const batch = db.batch();
+        unread.forEach(x => batch.update(db.collection('notifs').doc(String(x.id)), { read: true }));
+        batch.commit().catch(err => console.error(err));
+      }
+    }
+
+    function renderNotifSheet() {
+      const rows = notifs.length ? notifs.map(n => `
+        <button type="button" class="notif-row ${notifNewIds.has(String(n.id)) ? 'new' : ''}" onclick="openNotif('${String(n.id)}')">
+          <span class="notif-dot"></span>
+          <span style="min-width:0">
+            <span class="block text-sm font-semibold text-slate-700 safe-text">${escapeHtml(n.text)}</span>
+            <span class="block text-[11px] text-slate-400 mt-0.5">${escapeHtml(replyTimeText(n.at))}</span>
+          </span>
+        </button>`).join('') : '<p class="text-xs text-slate-400 text-center my-6">Nothing yet. When the other person does something, you will see it here 💕</p>';
+      const keep = document.getElementById('sheet-panel') ? document.getElementById('sheet-panel').scrollTop : 0;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Notifications 🔔</p>
+        <div id="notif-list">${rows}</div>
+        ${notifs.length ? '<button class="sheet-btn bg-rose-50 text-rose-600 mt-2 mb-2" onclick="clearNotifs()">Clear all</button>' : ''}
+        <button class="sheet-btn bg-rose-50 text-rose-600 mt-2" onclick="closeSheet()">Close</button>
+      `);
+      notifSheetOpen = true;       // openSheet does not reset it, but make sure
+      document.getElementById('sheet-panel').scrollTop = keep;
+    }
+
+    function openNotif(id) {
+      const n = notifs.find(x => String(x.id) === String(id));
+      closeSheet();
+      if (!n) return;
+      const screen = n.screen || 'photos';
+      if (screen === 'journal' && n.ref != null) { goToNote(n.ref); return; }
+      switchScreen(screen);
+      if (screen === 'photos' && n.ref != null && photos.some(p => Number(p.id) === Number(n.ref))) setTimeout(() => openModalById(n.ref), 200);
+    }
+
+    async function clearNotifs() {
+      const list = notifs.slice();
+      try {
+        const batch = db.batch();
+        list.forEach(x => batch.delete(db.collection('notifs').doc(String(x.id))));
+        await batch.commit();
+        showToast('Notifications cleared');
+      } catch (err) { console.error(err); showToast('Could not clear. Check your connection.'); }
     }
 
     function updateComposeAs() {
