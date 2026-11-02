@@ -936,13 +936,9 @@ html[data-color="berry"] {
     html.dark .text-slate-400 { color: var(--x14) !important; }
     html.dark .text-rose-600, html.dark .text-rose-500 { color: var(--c400) !important; }
     html.dark .text-red-600 { color: #fca5a5 !important; }
-    /* Delete / Cancel buttons in the bottom sheets: always follow the chosen colour theme, light and dark */
-    #sheet-panel .sheet-btn.bg-red-50 { background-color: rgb(var(--c500-rgb) / .08) !important; color: var(--c700) !important; box-shadow: inset 0 0 0 1.5px var(--c400); }
+    /* "Yes, delete it" follows the chosen colour theme, light and dark (other sheet buttons share one style) */
     #sheet-panel .sheet-btn.bg-red-500 { background-color: var(--c600) !important; color: #fff !important; }
-    html.dark #sheet-panel .sheet-btn.bg-red-50 { background-color: rgb(var(--c400-rgb) / .12) !important; color: var(--c400) !important; box-shadow: inset 0 0 0 1.5px rgb(var(--c400-rgb) / .7); }
     html.dark #sheet-panel .sheet-btn.bg-red-500 { background-color: var(--c500) !important; color: #fff !important; }
-    html.dark #sheet-panel .sheet-btn.bg-slate-100 { background-color: rgba(255,255,255,.1) !important; color: #efe9f5 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
-    html.dark #sheet-panel .sheet-btn.bg-rose-50 { box-shadow: inset 0 0 0 1px rgb(var(--c400-rgb) / .3); }
     html.dark .border-rose-100 { border-color: var(--x11) !important; }
     html.dark .border-rose-200 { border-color: var(--x7) !important; }
     html.dark .border-rose-300 { border-color: var(--x15) !important; }
@@ -2408,7 +2404,7 @@ html[data-color="berry"] {
         <textarea id="reply-text" rows="2" maxlength="500" style="font-size:16px" placeholder="Write a reply…"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3 mt-1"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="sendReply()">Send reply 💕</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Close</button>
       `);
       document.getElementById('reply-text').value = draft || '';
       const t = document.getElementById('reply-thread');
@@ -2471,8 +2467,8 @@ html[data-color="berry"] {
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('journal', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('journal', ${Number(id)})">${(itemOf('journal', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openNoteEditSheet()">✏️ Edit note</button>
-        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openNoteDeleteSheet()">🗑️ Delete note</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openNoteDeleteSheet()">🗑️ Delete note</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
 
@@ -2485,7 +2481,7 @@ html[data-color="berry"] {
         <textarea id="edit-note-text" rows="4" style="font-size:16px"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveNoteEdit()">Save 💕</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
       document.getElementById('edit-note-text').value = j.text || '';
     }
@@ -2510,7 +2506,7 @@ html[data-color="berry"] {
         <p class="text-4xl text-center mb-1">🥺</p>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
         <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmNoteDelete()">Yes, delete it</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Keep it 💕</button>
       `);
     }
 
@@ -2534,8 +2530,8 @@ html[data-color="berry"] {
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('photos', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('photos', ${Number(id)})">${(itemOf('photos', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openEditSheet()">✏️ Edit note</button>
-        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
 
@@ -2548,7 +2544,7 @@ html[data-color="berry"] {
         <textarea id="edit-caption" rows="4" style="font-size:16px"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveCaption()">Save 💕</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
       document.getElementById('edit-caption').value = p.caption || '';
     }
@@ -2572,7 +2568,7 @@ html[data-color="berry"] {
         <p class="text-4xl text-center mb-1">🥺</p>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
         <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmDelete()">Yes, delete it</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Keep it 💕</button>
       `);
     }
 
@@ -3009,7 +3005,7 @@ html[data-color="berry"] {
         ${field('cp-new2', 'Re-enter new password')}
         <p id="cp-error" class="pw-error text-center mb-2"></p>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveNewPassword()">Save 💕</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
 
@@ -3043,7 +3039,7 @@ html[data-color="berry"] {
           <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
           <p class="text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">${escapeHtml(displayName(u))}'s password</p>
           <p class="pick-text my-3" style="font-size:28px">${escapeHtml(pws[u] || '(none yet)')}</p>
-          <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+          <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Close</button>
         `);
       } catch (e) {
         passErrorToast(e);
@@ -3306,7 +3302,7 @@ html[data-color="berry"] {
         <div class="grid grid-cols-6 gap-2 mb-4">
           ${REACTIONS.map(e => `<button type="button" class="react-pick ${mine === e ? 'sel' : ''}" onclick="pickReaction('${e}')">${e}</button>`).join('')}
         </div>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
 
@@ -3419,8 +3415,8 @@ html[data-color="berry"] {
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('bucket', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openBucketEditSheet()">✏️ Edit</button>
-        <button class="sheet-btn bg-red-50 text-red-600 mb-2" onclick="openBucketDeleteSheet()">🗑️ Delete</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openBucketDeleteSheet()">🗑️ Delete</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
 
@@ -3433,7 +3429,7 @@ html[data-color="berry"] {
         <textarea id="edit-bucket-text" rows="3" maxlength="140" style="font-size:16px"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveBucketEdit()">Save 💕</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
       document.getElementById('edit-bucket-text').value = it.text || '';
     }
@@ -3458,7 +3454,7 @@ html[data-color="berry"] {
         <p class="text-4xl text-center mb-1">🥺</p>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
         <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmBucketDelete()">Yes, delete it</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Keep it 💕</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Keep it 💕</button>
       `);
     }
 
@@ -3497,7 +3493,7 @@ html[data-color="berry"] {
         <p id="pick-text" class="pick-text my-3">🎲</p>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="markPickedDone()">We did it! ✓</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="pickDateIdea()">🎲 Another one</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Close</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Close</button>
       `);
 
       let n = 0;
@@ -3892,7 +3888,7 @@ html[data-color="berry"] {
         <input id="sheet-profile-emoji" type="text" autocomplete="off" placeholder="Tap here, then the 🙂 key" class="pw-input mb-3" style="padding-right:16px; font-size:22px">
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveProfile()">Save 💕</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="resetProfile()">Back to the original</button>
-        <button class="sheet-btn bg-slate-100 text-slate-600" onclick="closeSheet()">Cancel</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
       document.getElementById('sheet-profile-name').value = profileOf(u).name;
       document.getElementById('sheet-profile-emoji').value = profileOf(u).emoji;
