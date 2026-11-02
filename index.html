@@ -735,7 +735,7 @@ html[data-color="berry"] {
     .bottom-nav .nav-track { position: relative; display: flex; width: min(420px, 100%); }
     .nav-bubble {
       position: absolute; top: 0; bottom: 0; left: 0;
-      width: 25%; border-radius: 9999px;
+      width: 20%; border-radius: 9999px;
       background: var(--c100);
       transition: transform .28s cubic-bezier(.3,1.3,.5,1);
       will-change: transform; pointer-events: none;
@@ -760,6 +760,12 @@ html[data-color="berry"] {
       box-shadow: 0 8px 22px rgb(var(--c500-rgb) / .28);
     }
     .together-card::before { content: "💞"; position: absolute; right: -4px; top: -14px; font-size: 76px; opacity: .15; transform: rotate(14deg); pointer-events: none; }
+    .date-card { padding-left: 44px; padding-right: 44px; }
+    .date-card .date-more {
+      position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border-radius: 9999px;
+      background: rgba(255,255,255,.22); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .date-card .date-title { overflow-wrap: anywhere; }
     .together-big { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 38px; line-height: 1.1; text-shadow: 0 2px 8px rgba(0,0,0,.18); overflow-wrap: anywhere; }
     .together-bar { height: 6px; border-radius: 9999px; background: rgba(255,255,255,.3); overflow: hidden; margin-top: 12px; }
     .together-bar > div { height: 100%; border-radius: 9999px; background: #fff; transition: width .6s ease; }
@@ -1206,6 +1212,16 @@ html[data-color="berry"] {
     </section>
 
     <!-- SCREEN 4: SETTINGS -->
+    <!-- SCREEN: OUR DATES (countdowns) -->
+    <section id="screen-dates" class="space-y-4 hidden">
+      <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm text-center">
+        <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Our dates 📅</h3>
+        <p class="text-[11px] text-slate-400 mt-0.5">Birthdays, anniversaries and days to look forward to</p>
+        <button type="button" class="sheet-btn bg-rose-500 text-white mt-3" onclick="openDateSheet()">＋ Add an important date</button>
+      </div>
+      <div id="dates-list" class="space-y-4"></div>
+    </section>
+
     <section id="screen-settings" class="space-y-4 hidden">
       <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm text-center">
         <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Settings ⚙️</h3>
@@ -1250,6 +1266,7 @@ html[data-color="berry"] {
     <button id="screen-photos-btn" onclick="switchScreen('photos')" class="tab-btn active" aria-label="Memories"><i class="fas fa-images"></i></button>
     <button id="screen-journal-btn" onclick="switchScreen('journal')" class="tab-btn" aria-label="Journal"><i class="fas fa-book-open"></i></button>
     <button id="screen-list-btn" onclick="switchScreen('list')" class="tab-btn" aria-label="Our List"><i class="fas fa-list-check"></i></button>
+    <button id="screen-dates-btn" onclick="switchScreen('dates')" class="tab-btn" aria-label="Our dates"><i class="fas fa-calendar-days"></i></button>
     <button id="screen-settings-btn" onclick="switchScreen('settings')" class="tab-btn" aria-label="Settings"><i class="fas fa-gear"></i></button>
     </div>
   </nav>
@@ -1796,7 +1813,7 @@ html[data-color="berry"] {
       renderOnThisDay();
     }, err => console.error('journal listener error', err));
 
-    const SCREEN_ORDER = ['photos', 'journal', 'list', 'settings'];
+    const SCREEN_ORDER = ['photos', 'journal', 'list', 'dates', 'settings'];
     let currentScreen = 'photos';
     function switchScreen(screen) {
       const dir = SCREEN_ORDER.indexOf(screen) - SCREEN_ORDER.indexOf(currentScreen);
@@ -2355,6 +2372,7 @@ html[data-color="berry"] {
       sheetReplyCol = null;
       sheetReplyId = null;
       replyPickerId = null;
+      sheetDateId = null;
       clearInterval(pickTimer);
     }
 
@@ -4027,6 +4045,197 @@ html[data-color="berry"] {
 
     document.addEventListener('DOMContentLoaded', () => applyColorTheme(currentColorTheme()));
 
+    // =====================================================================
+    // Our dates: important dates with a countdown (stored in settings/dates -> { items: [...] })
+    // =====================================================================
+    let datesList = [];
+    let datesLoaded = false;
+    let sheetDateId = null;
+    const datesRef = () => db.collection('settings').doc('dates');
+
+    db.collection('settings').doc('dates').onSnapshot(snap => {
+      datesList = (snap.exists && Array.isArray(snap.data().items)) ? snap.data().items : [];
+      datesLoaded = true;
+      renderDates();
+    }, err => { console.error('dates listener error', err); datesLoaded = true; renderDates(); });
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function dateLabelOf(iso) {                      // 'YYYY-MM-DD' -> 'DD.MM.YYYY'
+      const p = String(iso).split('-');
+      return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso;
+    }
+    function parseTypedDate(text) {                  // '12.09.1999' -> '1999-09-12' (or null)
+      const m = String(text).trim().match(/^(\d{1,2})\D+(\d{1,2})\D+(\d{4})$/);
+      if (!m) return null;
+      const d = +m[1], mo = +m[2], y = +m[3];
+      if (y < 1900 || y > 2200 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      const t = new Date(Date.UTC(y, mo - 1, d));
+      if (t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;   // e.g. 31.02
+      return `${y}-${pad2(mo)}-${pad2(d)}`;
+    }
+    function formatDateInput(el) {                   // adds the dots while typing: 12091999 -> 12.09.1999
+      const dg = el.value.replace(/\D/g, '').slice(0, 8);
+      let out = dg.slice(0, 2);
+      if (dg.length > 2) out += '.' + dg.slice(2, 4);
+      if (dg.length > 4) out += '.' + dg.slice(4);
+      el.value = out;
+    }
+
+    function dateInfo(item, now) {
+      const [y, m, d] = String(item.date).split('-').map(Number);
+      const today = utcDay(now.getFullYear(), now.getMonth(), now.getDate());
+      const repeat = item.repeat !== false;
+      let target, years = 0, progress = 100;
+      if (repeat) {
+        let ty = now.getFullYear();
+        target = utcDay(ty, m - 1, d);
+        if (target < today) { ty++; target = utcDay(ty, m - 1, d); }
+        years = ty - y;
+        const last = utcDay(ty - 1, m - 1, d);
+        const span = Math.max(1, daysBetween(last, target));
+        progress = Math.min(100, Math.max(0, ((span - daysBetween(today, target)) / span) * 100));
+      } else {
+        target = utcDay(y, m - 1, d);
+        const created = new Date(Number(item.id) || now.getTime());
+        const start = utcDay(created.getFullYear(), created.getMonth(), created.getDate());
+        const left0 = daysBetween(today, target);
+        progress = left0 <= 0 ? 100 : Math.min(100, Math.max(0, (daysBetween(start, today) / Math.max(1, daysBetween(start, target))) * 100));
+      }
+      return { left: daysBetween(today, target), years, repeat, progress };
+    }
+
+    function dateIcon(title) {
+      const t = String(title).toLowerCase();
+      if (/birth|bday|geburts/.test(t)) return '🎂';
+      if (/anniv|jahrestag/.test(t)) return '💍';
+      if (/trip|travel|holiday|flight|reise/.test(t)) return '✈️';
+      return '📅';
+    }
+
+    function dateCardHtml(item, now) {
+      const inf = dateInfo(item, now);
+      let main;
+      if (inf.left === 0) main = 'Today! 🎉';
+      else if (inf.left === 1) main = 'tomorrow 💕';
+      else if (inf.left > 1) main = 'in ' + plural(inf.left, 'day');
+      else main = plural(-inf.left, 'day') + ' ago';
+      let sub = dateLabelOf(item.date);
+      if (inf.repeat && inf.years > 0) {
+        sub += /birth|bday|geburts/i.test(item.title) ? ` · turns ${inf.years}` : ` · ${plural(inf.years, 'year')}`;
+      }
+      return `
+        <div class="together-card date-card">
+          <button type="button" class="date-more" onclick="openDateMenu(${Number(item.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
+          <p class="text-[11px] font-bold uppercase tracking-widest opacity-90 date-title">${dateIcon(item.title)} ${escapeHtml(item.title)}</p>
+          <p class="together-big">${escapeHtml(main)}</p>
+          <p class="text-[12px] font-semibold opacity-95 mt-0.5">${escapeHtml(sub)}</p>
+          <div class="together-bar"><div style="width:${inf.progress}%"></div></div>
+          ${item.by ? `<p class="text-[11px] font-semibold opacity-90 mt-2">added by ${escapeHtml(personEmoji(item.by))} ${escapeHtml(displayName(item.by))}</p>` : ''}
+        </div>`;
+    }
+
+    function renderDates() {
+      const el = document.getElementById('dates-list');
+      if (!el) return;
+      if (!datesLoaded) { el.innerHTML = '<p class="text-center text-xs text-slate-400">Loading…</p>'; return; }
+      if (!datesList.length) {
+        el.innerHTML = '<div class="set-card text-center"><p class="text-3xl mb-1">🎂</p><p class="text-sm font-semibold text-slate-600">No dates yet</p><p class="text-xs text-slate-400 mt-1">Add your birthdays, your anniversary or a trip to count down to 💕</p></div>';
+        return;
+      }
+      const now = new Date();
+      const rows = datesList.map(it => ({ it, left: dateInfo(it, now).left }));
+      rows.sort((a, b) => (a.left < 0) !== (b.left < 0) ? (a.left < 0 ? 1 : -1) : (a.left < 0 ? b.left - a.left : a.left - b.left));
+      el.innerHTML = rows.map(r => dateCardHtml(r.it, now)).join('');
+    }
+
+    function openDateMenu(id) {
+      sheetDateId = id;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openDateSheet(sheetDateId)">✏️ Edit</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openDateDeleteSheet()">🗑️ Delete</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
+      `);
+    }
+
+    function openDateSheet(id) {
+      const it = id != null ? datesList.find(x => String(x.id) === String(id)) : null;
+      sheetDateId = it ? it.id : null;
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-3">${it ? 'Edit date' : 'Important date'} 📅</p>
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date</p>
+        <input id="date-in" type="text" inputmode="numeric" maxlength="10" placeholder="DD.MM.YYYY" autocomplete="off"
+               oninput="formatDateInput(this)" style="font-size:16px"
+               class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">What is this date?</p>
+        <input id="date-title" type="text" maxlength="40" autocomplete="off" style="font-size:16px"
+               class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
+        <label class="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
+          <input id="date-repeat" type="checkbox" style="width:20px;height:20px"> Repeats every year
+        </label>
+        <p id="date-error" class="pw-error"></p>
+        <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveDate()">Save 💕</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
+      `);
+      document.getElementById('date-in').value = it ? dateLabelOf(it.date) : '';
+      document.getElementById('date-title').value = it ? it.title : '';
+      document.getElementById('date-repeat').checked = it ? it.repeat !== false : true;
+    }
+
+    async function saveDate() {
+      const iso = parseTypedDate(document.getElementById('date-in').value);
+      const title = document.getElementById('date-title').value.trim();
+      const repeat = document.getElementById('date-repeat').checked;
+      const err = document.getElementById('date-error');
+      if (!iso) { err.textContent = 'Type the date like 12.09.1999'; return; }
+      if (!title) { err.textContent = 'Type what this date is'; return; }
+      const editId = sheetDateId;
+      try {
+        if (editId != null) {
+          await db.runTransaction(async tx => {
+            const snap = await tx.get(datesRef());
+            const items = (snap.exists && snap.data().items) || [];
+            tx.set(datesRef(), { items: items.map(x => String(x.id) === String(editId) ? Object.assign({}, x, { date: iso, title: title, repeat: repeat }) : x) }, { merge: true });
+          });
+        } else {
+          const item = { id: Date.now(), date: iso, title: title, repeat: repeat, by: currentUser() || '' };
+          await datesRef().set({ items: firebase.firestore.FieldValue.arrayUnion(item) }, { merge: true });
+        }
+        closeSheet();
+        showToast('Date saved 💕');
+      } catch (e) {
+        console.error(e);
+        err.textContent = 'Could not save. Check your connection.';
+      }
+    }
+
+    function openDateDeleteSheet() {
+      openSheet(`
+        <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+        <p class="text-4xl text-center mb-1">🥺</p>
+        <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
+        <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmDateDelete()">Yes, delete it</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Keep it 💕</button>
+      `);
+    }
+
+    async function confirmDateDelete() {
+      const id = sheetDateId;
+      try {
+        await db.runTransaction(async tx => {
+          const snap = await tx.get(datesRef());
+          const items = (snap.exists && snap.data().items) || [];
+          tx.set(datesRef(), { items: items.filter(x => String(x.id) !== String(id)) }, { merge: true });
+        });
+        closeSheet();
+        showToast('Date deleted');
+      } catch (e) {
+        console.error(e);
+        showToast('Could not delete. Check your connection.');
+      }
+    }
+
     function updateComposeAs() {
       const el = document.getElementById('compose-as');
       if (!el) return;
@@ -4042,9 +4251,10 @@ html[data-color="berry"] {
       updateComposeAs();
       updateSettingsUi();
       renderSelected();
-      setInterval(updateTogether, 60000);
+      renderDates();
+      setInterval(() => { updateTogether(); renderDates(); }, 60000);
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) { updateTogether(); renderOnThisDay(); }
+        if (!document.hidden) { updateTogether(); renderOnThisDay(); renderDates(); }
       });
     });
   </script>
