@@ -765,6 +765,7 @@ html[data-color="berry"] {
       position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border-radius: 9999px;
       background: rgba(255,255,255,.22); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px;
     }
+    .date-card .date-next { display: inline-block; margin-top: 10px; padding: 4px 12px; border-radius: 9999px; background: rgba(255,255,255,.22); font-size: 12px; font-weight: 700; }
     .date-card .date-title { overflow-wrap: anywhere; }
     .together-big { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 38px; line-height: 1.1; text-shadow: 0 2px 8px rgba(0,0,0,.18); overflow-wrap: anywhere; }
     .together-bar { height: 6px; border-radius: 9999px; background: rgba(255,255,255,.3); overflow: hidden; margin-top: 12px; }
@@ -4116,12 +4117,14 @@ html[data-color="berry"] {
       const inf = dateInfo(item, now);
       let main;
       if (inf.left === 0) main = 'Today! 🎉';
-      else if (inf.left === 1) main = 'tomorrow 💕';
-      else if (inf.left > 1) main = 'in ' + plural(inf.left, 'day');
+      else if (inf.left > 0) main = plural(inf.left, 'day') + ' left';
       else main = plural(-inf.left, 'day') + ' ago';
-      let sub = dateLabelOf(item.date);
+      const sub = dateLabelOf(item.date);                       // the date stays on its own line
+      let next = '';                                            // "turns 23" goes in its own place in the box
       if (inf.repeat && inf.years > 0) {
-        sub += /birth|bday|geburts/i.test(item.title) ? ` · turns ${inf.years}` : ` · ${plural(inf.years, 'year')}`;
+        next = /birth|bday|geburts/i.test(item.title)
+          ? `🎈 Turns ${inf.years}`
+          : `🎉 ${plural(inf.years, 'year')}`;
       }
       return `
         <div class="together-card date-card">
@@ -4130,6 +4133,7 @@ html[data-color="berry"] {
           <p class="together-big">${escapeHtml(main)}</p>
           <p class="text-[12px] font-semibold opacity-95 mt-0.5">${escapeHtml(sub)}</p>
           <div class="together-bar"><div style="width:${inf.progress}%"></div></div>
+          ${next ? `<p class="date-next">${escapeHtml(next)}</p>` : ''}
           ${item.by ? `<p class="text-[11px] font-semibold opacity-90 mt-2">added by ${escapeHtml(personEmoji(item.by))} ${escapeHtml(displayName(item.by))}</p>` : ''}
         </div>`;
     }
