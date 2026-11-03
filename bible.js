@@ -45,7 +45,8 @@
     filter: 'all',
     docs: {},
     open: null,       // { key, b, c, v, en, ar, replyTo }
-    draft: ''
+    draft: '',
+    picker: null, menu: null, editNote: null, editDraft: ''
   };
   try { var sv = JSON.parse(localStorage.getItem('bibleRead') || 'null'); if (sv && sv.b >= 1 && sv.b <= 66) { S.read = sv; if (!S.read.mode) S.read.mode = 'both'; if (!S.read.stage) S.read.stage = 'books'; } } catch (e) {}
 
@@ -171,6 +172,21 @@
     '.bb-chip-count { font-size: 11px; font-weight: 800; color: var(--c600); }',
     '.bb-preview-react { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--c100); }',
     '.bb-react-caption { font-size: 11px; font-weight: 800; color: var(--c600); margin-right: 3px; }',
+    /* Same compact action bar and heart buttons used by Journal. */
+    '.bb-note-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:10px; padding-top:8px; border-top:1px dashed var(--x2); }',
+    '.bb-note-actions .bb-actions-right { display:flex; align-items:center; gap:5px; margin-left:auto; }',
+    '.bb-note-actions .heart-btn { min-height:28px; color:#64748b; font-weight:700; cursor:pointer; }',
+    '.bb-note-actions .heart-btn.liked { color:var(--c600); }',
+    '.bb-note-actions .bb-reply-trigger { display:inline-flex; align-items:center; gap:4px; padding:5px 9px; border-radius:9999px; font-size:11px; background:rgba(255,255,255,.7); color:#64748b; font-weight:700; }',
+    '.bb-note-actions button:focus-visible, .bb-note-menu button:focus-visible, .bb-note-picker button:focus-visible { outline:2px solid var(--c500); outline-offset:2px; }',
+    '.bb-note-picker { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; margin-top:9px; padding:9px 7px; border-radius:16px; background:rgba(255,255,255,.7); border:1px solid var(--c100); }',
+    '.bb-note-picker .bb-chip { width:100%; min-width:0; min-height:38px; font-size:21px; }',
+    '.bb-note-menu { display:grid; gap:5px; padding:8px; margin-top:8px; border-radius:14px; border:1px solid var(--c100); background:rgba(255,255,255,.7); }',
+    '.bb-note-menu button { text-align:left; padding:9px 11px; font-size:13px; font-weight:700; color:var(--c600); border-radius:10px; }',
+    '.bb-note-menu button:active { background:var(--c100); }',
+    '.bb-note-edit { margin-top:8px; }',
+    '.bb-note-edit .bb-input { font-size:16px; }',
+    '.bb-preview-note { margin-top:10px; padding-top:8px; border-top:1px solid var(--c100); }',
     '.bb-mini { font-size: 11px; font-weight: 700; color: var(--c600); padding: 2px 6px; }',
     '.bb-mini.del { color: #94a3b8; }',
     '.bb-input { width: 100%; border: 1px solid var(--c200); border-radius: 14px; padding: 10px 12px; font-size: 14px; background: #fff; color: #334155; resize: none; }',
@@ -198,6 +214,12 @@
     'html.dark .bb-chip:hover { background: var(--x11); border-color: var(--c400); }',
     'html.dark .bb-chip.mine { background: rgba(244,63,94,.23); border-color: var(--c400); }',
     'html.dark .bb-chip-count, html.dark .bb-react-caption { color: var(--x8); }',
+    'html.dark .bb-note-actions { border-top-color:var(--x36); }',
+    'html.dark .bb-note-actions .bb-reply-trigger, html.dark .bb-note-picker, html.dark .bb-note-menu { background:rgba(255,255,255,.1); color:var(--x8); border-color:var(--x7); }',
+    'html.dark .bb-note-actions .heart-btn { color:var(--x8); }',
+    'html.dark .bb-note-actions .heart-btn.liked { color:#fda4af; }',
+    'html.dark .bb-note-menu button { color:var(--x8); }',
+    'html.dark .bb-preview-note { border-top-color:var(--x7); }',
     'html.dark .bb-preview-react { border-top-color: var(--x7); }',
     'html.dark .bb-skel { background: linear-gradient(90deg, var(--x11), var(--x7), var(--x11)); background-size: 200% 100%; }'
   ].join('\n');
@@ -544,7 +566,7 @@
         '<div class="rf">' + esc(refEn(d.book, d.chapter, d.verse)) + ' · ' + esc(refAr(d.book, d.chapter, d.verse)) + ' <span style="float:right">' + marksHtml(d) + '</span></div>' +
         (d.en ? '<div style="font-size:14px;line-height:1.55;margin-top:5px">' + esc(clip(d.en, 220)) + '</div>' : '') +
         (d.ar ? '<div class="bb-ar" style="font-size:16px;margin-top:4px">' + esc(clip(d.ar, 220)) + '</div>' : '') +
-        (last ? '<div style="font-size:12px;color:#64748b;margin-top:6px">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': ' + esc(clip(last.text, 90)) + '</div>' + reactRow(last, last.id, '', true) : '') +
+        (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': ' + esc(clip(last.text, 90)) + '</div>' + noteActions(last, true) + '</div>' : '') +
         '</div>';
     }).join('');
     body.innerHTML = h + '</div>';
@@ -554,13 +576,20 @@
     Array.prototype.forEach.call(body.querySelectorAll('.bb-saved'), function (x) {
       x.onclick = function (e) {
         var d = S.docs[x.getAttribute('data-k')]; if (!d) return;
-        var reactionButton = e.target.closest('[data-act="react"]');
-        if (reactionButton && x.contains(reactionButton)) {
-          // React right here in Ours; don't open the verse sheet as a side effect.
+        var action = e.target.closest('[data-act]');
+        if (action && x.contains(action)) {
           e.preventDefault(); e.stopPropagation();
-          if (needUser()) return;
-          return toggleReaction(d.book, d.chapter, d.verse, d.en, d.ar,
-            reactionButton.getAttribute('data-nid'), '', reactionButton.getAttribute('data-e'));
+          var act = action.getAttribute('data-act'), nid = action.getAttribute('data-nid');
+          if (act === 'love') {
+            if (needUser()) return;
+            return toggleNoteHeart(d.book, d.chapter, d.verse, d.en, d.ar, nid);
+          }
+          // The verse panel contains the same picker/menu as Journal-style notes.
+          S.picker = act === 'picknote' ? String(nid) : null;
+          S.menu = act === 'notenmenu' ? String(nid) : null;
+          openSheet(d.book, d.chapter, d.verse, d.en, d.ar, true);
+          if (act === 'reply') { S.open.replyTo = String(nid); renderSheet(); var t = $('bb-note-in'); if (t) t.focus(); }
+          return;
         }
         openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
       };
@@ -599,18 +628,66 @@
     });
   }
 
+  /* ---------------- Journal-style note actions ---------------- */
+  // Unlike Journal's device-local count, Bible hearts are stored per person in
+  // Firestore, so each device shows the same count and the same liked state.
+  function toggleNoteHeart(b, c, v, en, ar, nid) {
+    var m = me(); if (!m) return;
+    return mutate(b, c, v, en, ar, function (d) {
+      var n = findNote(d, nid); if (!n) return;
+      n.hearts = n.hearts || {};
+      if (n.hearts[m]) delete n.hearts[m]; else n.hearts[m] = true;
+    });
+  }
+  function noteActions(n, preview) {
+    var m = me(), hearts = n.hearts || {}, liked = !!(m && hearts[m]);
+    var count = Object.keys(hearts).filter(function (u) { return !!hearts[u]; }).length;
+    var id = esc(n.id), replies = (n.replies || []).length;
+    return '<div class="bb-note-actions" role="group" aria-label="Note actions">' +
+      '<button type="button" class="bb-reply-trigger" data-act="reply" data-nid="' + id + '" aria-label="Reply to note">💬 ' + replies + (replies === 1 ? ' reply' : ' replies') + '</button>' +
+      '<div class="bb-actions-right">' +
+        '<button type="button" class="heart-btn' + (liked ? ' liked' : '') + '" data-act="love" data-nid="' + id + '" aria-pressed="' + liked + '" aria-label="Love note"><span>' + (liked ? '❤️' : '🤍') + '</span>' + (count ? '<span style="font-weight:800;color:var(--c500)">' + count + '</span>' : '') + '</button>' +
+        '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="picknote" data-nid="' + id + '" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>' +
+        '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="notenmenu" data-nid="' + id + '" aria-label="More note options"><i class="fas fa-ellipsis"></i></button>' +
+      '</div></div>' + (preview ? '' : noteExtras(n));
+  }
+  function noteExtras(n) {
+    var id = esc(n.id), mine = me() && me() === n.by;
+    var h = '';
+    if (S.picker === String(n.id)) {
+      h += '<div class="bb-note-picker" role="group" aria-label="Choose reaction">' + EMOJIS.map(function (e) {
+        var selected = !!(n.reactions && n.reactions[me()] === e);
+        return '<button type="button" class="bb-chip' + (selected ? ' mine' : '') + '" data-act="react" data-nid="' + id + '" data-e="' + e + '" aria-label="React ' + e + '" aria-pressed="' + selected + '">' + e + '</button>';
+      }).join('') + '</div>';
+    }
+    if (S.menu === String(n.id)) {
+      h += '<div class="bb-note-menu" role="group" aria-label="More note options">' +
+        '<button type="button" data-act="reply" data-nid="' + id + '">💬 Reply</button>' +
+        '<button type="button" data-act="pinnote" data-nid="' + id + '">' + (n.pinned ? '📌 Unpin' : '📌 Pin to top') + '</button>' +
+        (mine ? '<button type="button" data-act="editnote" data-nid="' + id + '">✏️ Edit note</button><button type="button" data-act="delnote" data-nid="' + id + '">🗑️ Delete note</button>' : '') +
+        '<button type="button" data-act="notenmenu" data-nid="' + id + '">Cancel</button></div>';
+    }
+    if (S.editNote === String(n.id) && mine) {
+      h += '<div class="bb-note-edit"><textarea class="bb-input" rows="3" maxlength="5000" data-edit="' + id + '" aria-label="Edit note">' + esc(S.editDraft) + '</textarea>' +
+        '<div class="bb-row" style="margin-top:8px"><button type="button" class="bb-btn solid" data-act="savenote" data-nid="' + id + '">Save 💕</button><button type="button" class="bb-btn" data-act="canceledit" data-nid="' + id + '">Cancel</button></div></div>';
+    }
+    return h;
+  }
+
   /* ---------------- verse sheet ---------------- */
-  function openSheet(b, c, v, en, ar) {
+  function openSheet(b, c, v, en, ar, keepActions) {
+    if (!keepActions) { S.picker = null; S.menu = null; }
+    S.editNote = null; S.editDraft = '';
     var t = cachedText(b, c, v);
     S.open = { key: keyOf(b, c, v), b: b, c: c, v: v, en: en || t.en, ar: ar || t.ar, replyTo: null };
     S.draft = '';
     overlay.classList.add('open');
     renderSheet();
   }
-  function closeSheet() { overlay.classList.remove('open'); S.open = null; }
+  function closeSheet() { overlay.classList.remove('open'); S.open = null; S.picker = null; S.menu = null; S.editNote = null; }
   overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSheet(); });
 
-  function reactRow(target, nid, rid, preview) {
+  function reactRow(target, nid, rid, preview, compact) {
     var m = me(), r = (target && target.reactions) || {};
     var counts = {};
     Object.keys(r).forEach(function (u) { if (r[u]) counts[r[u]] = (counts[r[u]] || 0) + 1; });
@@ -619,6 +696,7 @@
     if (preview) h += '<span class="bb-react-caption">React</span>';
     EMOJIS.forEach(function (e, i) {
       var mine = !!(m && r[m] === e), count = counts[e] || 0;
+      if (compact && !count) return;
       h += '<button type="button" class="bb-chip' + (mine ? ' mine' : '') + '" data-act="react" data-nid="' + esc(nid) + '" data-rid="' + esc(rid || '') + '" data-e="' + e + '" aria-pressed="' + mine + '" aria-label="' + labels[i] + (count ? ', ' + count + ' reactions' : '') + '" title="' + labels[i] + '">' + e + (count ? '<span class="bb-chip-count">' + count + '</span>' : '') + '</button>';
     });
     return h + '</div>';
@@ -628,6 +706,7 @@
     var ta = $('bb-note-in'); if (ta) S.draft = ta.value;
     var d = S.docs[o.key] || {}, m = me();
     var fav = d.fav || {}, notes = d.notes || [];
+    var keepScroll = panel.scrollTop;
     var h = '';
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:800;color:var(--c600);font-size:14px">' + esc(refEn(o.b, o.c, o.v)) + '</div><div class="bb-ar" style="font-size:14px;line-height:1.6;color:#94a3b8">' + esc(refAr(o.b, o.c, o.v)) + '</div></div>' +
          '<button class="bb-btn" data-act="close">✕</button></div>';
@@ -641,16 +720,16 @@
     if (o2 && fav[o2]) h += '<p style="font-size:11px;color:#94a3b8;margin-top:8px">' + emo(o2) + ' ' + esc(nm(o2)) + ' saved this ✨</p>';
     h += '<div class="bb-sec">Our notes 💌</div>';
     if (!notes.length) h += '<div class="bb-empty" style="padding:10px">No notes yet. Write the first one 💕</div>';
-    notes.forEach(function (n) {
-      h += '<div class="bb-note" id="bn-' + n.id + '"><div class="who"><span>' + emo(n.by) + ' ' + esc(nm(n.by)) + '</span><span class="t">' + ago(n.at) + '</span></div>' +
-           '<div class="tx">' + esc(n.text) + '</div>' + reactRow(n, n.id, '');
+    notes.slice().sort(function (a, b) { return Number(!!b.pinned) - Number(!!a.pinned); }).forEach(function (n) {
+      h += '<div class="bb-note" id="bn-' + esc(n.id) + '"><div class="who"><span>' + (n.pinned ? '📌 ' : '') + emo(n.by) + ' ' + esc(nm(n.by)) + '</span><span class="t">' + ago(n.at) + '</span></div>' +
+           '<div class="tx">' + esc(n.text) + '</div>';
       (n.replies || []).forEach(function (r) {
-        h += '<div class="bb-reply" id="br-' + r.id + '"><div class="who"><span>' + emo(r.by) + ' ' + esc(nm(r.by)) + '</span><span class="t">' + ago(r.at) + '</span></div>' +
+        h += '<div class="bb-reply" id="br-' + esc(r.id) + '"><div class="who"><span>' + emo(r.by) + ' ' + esc(nm(r.by)) + '</span><span class="t">' + ago(r.at) + '</span></div>' +
              '<div class="tx">' + esc(r.text) + '</div>' + reactRow(r, n.id, r.id) +
-             (m && r.by === m ? '<button class="bb-mini del" data-act="delreply" data-nid="' + n.id + '" data-rid="' + r.id + '">Delete</button>' : '') + '</div>';
+             (m && r.by === m ? '<button class="bb-mini del" data-act="delreply" data-nid="' + esc(n.id) + '" data-rid="' + esc(r.id) + '">Delete</button>' : '') + '</div>';
       });
-      h += '<div style="margin-top:4px"><button class="bb-mini" data-act="reply" data-nid="' + n.id + '">↩ Reply</button>' +
-           (m && n.by === m ? '<button class="bb-mini del" data-act="delnote" data-nid="' + n.id + '">Delete</button>' : '') + '</div></div>';
+      h += (Object.keys(n.reactions || {}).filter(function (u) { return n.reactions[u]; }).length ? reactRow(n, n.id, '', false, true) : '') +
+           noteActions(n, false) + '</div>';
     });
     var rt = o.replyTo && findNote(d, o.replyTo);
     h += '<div style="margin-top:14px">' +
@@ -658,23 +737,46 @@
          '<textarea id="bb-note-in" class="bb-input" rows="2" placeholder="' + (rt ? 'Write a reply…' : 'Write a note on this verse…') + '"></textarea>' +
          '<button class="bb-btn solid" style="width:100%;margin-top:8px;padding:11px" data-act="send">Send 💌</button></div>';
     panel.innerHTML = h;
+    panel.scrollTop = keepScroll;
     var ta2 = $('bb-note-in'); if (ta2) ta2.value = S.draft;
   }
+  panel.addEventListener('input', function (e) {
+    if (e.target && e.target.matches('[data-edit]')) S.editDraft = e.target.value;
+  });
   panel.addEventListener('click', function (e) {
     var a = e.target.closest('[data-act]'); if (!a || !S.open) return;
     var act = a.getAttribute('data-act'), o = S.open, m = me();
     var nid = a.getAttribute('data-nid'), rid = a.getAttribute('data-rid');
     if (act === 'close') return closeSheet();
     if (act === 'cancelreply') { o.replyTo = null; return renderSheet(); }
-    if (act === 'reply') { o.replyTo = nid; renderSheet(); var t = $('bb-note-in'); if (t) t.focus(); return; }
+    if (act === 'reply') { S.picker = null; S.menu = null; o.replyTo = nid; renderSheet(); var t = $('bb-note-in'); if (t) t.focus(); return; }
     if (needUser()) return;
     function run(fn) { return mutate(o.b, o.c, o.v, o.en, o.ar, fn); }
+    if (act === 'love') return toggleNoteHeart(o.b, o.c, o.v, o.en, o.ar, nid);
+    if (act === 'picknote') { S.picker = S.picker === String(nid) ? null : String(nid); S.menu = null; S.editNote = null; renderSheet(); return; }
+    if (act === 'notenmenu') { S.menu = S.menu === String(nid) ? null : String(nid); S.picker = null; S.editNote = null; renderSheet(); return; }
+    if (act === 'pinnote') { S.menu = null; return run(function (d) { var n = findNote(d, nid); if (n) n.pinned = !n.pinned; }); }
+    if (act === 'editnote') {
+      var n = findNote(S.docs[o.key] || {}, nid);
+      if (!n || n.by !== m) return;
+      S.menu = null; S.picker = null; S.editNote = String(nid); S.editDraft = n.text || ''; renderSheet();
+      var edit = panel.querySelector('[data-edit]'); if (edit) edit.focus();
+      return;
+    }
+    if (act === 'canceledit') { S.editNote = null; S.editDraft = ''; renderSheet(); return; }
+    if (act === 'savenote') {
+      var updatedText = S.editDraft.trim();
+      if (!updatedText) { toast('The note cannot be empty 💕'); return; }
+      return run(function (d) { var n = findNote(d, nid); if (n && n.by === m) n.text = updatedText; }).then(function () { S.editNote = null; S.editDraft = ''; renderSheet(); });
+    }
     if (act === 'fav') return run(function (d) { d.fav[m] = !d.fav[m]; });
     if (act === 'react') {
+      S.picker = null;
       return toggleReaction(o.b, o.c, o.v, o.en, o.ar, nid, rid, a.getAttribute('data-e'));
     }
     if (act === 'delnote') {
       if (!confirm('Delete this note?')) return;
+      S.menu = null; S.editNote = null;
       return run(function (d) { d.notes = d.notes.filter(function (n) { return String(n.id) !== String(nid) || n.by !== m; }); });
     }
     if (act === 'delreply') {
@@ -741,13 +843,16 @@
       (d.notes || []).forEach(function (n) {
         var rp = {};
         (n.replies || []).forEach(function (r) { rp[r.id] = { by: r.by, r: Object.assign({}, r.reactions || {}) }; });
-        var cur = { by: n.by, r: Object.assign({}, n.reactions || {}), rp: rp };
+        var cur = { by: n.by, r: Object.assign({}, n.reactions || {}), h: Object.assign({}, n.hearts || {}), rp: rp };
         nn[n.id] = cur;
         if (!prev) return;
         var p = pk[n.id];
         if (!p) { if (n.by && n.by !== m) ev(n.by, '💌', nm(n.by) + ' wrote a note on ' + where, clip(n.text, 60), key, n.id); return; }
         Object.keys(cur.r).forEach(function (u) {
           if (u !== m && cur.r[u] && (!p.r || p.r[u] !== cur.r[u])) ev(u, cur.r[u], nm(u) + ' reacted ' + cur.r[u] + ' to ' + (n.by === m ? 'your' : n.by === u ? 'their own' : nm(n.by) + "'s") + ' note on ' + where, '', key, n.id);
+        });
+        Object.keys(cur.h).forEach(function (u) {
+          if (u !== m && cur.h[u] && !(p.h && p.h[u])) ev(u, '❤️', nm(u) + ' loved ' + (n.by === m ? 'your' : 'a') + ' Bible note on ' + where, '', key, n.id);
         });
         Object.keys(rp).forEach(function (rid) {
           var c = rp[rid], pr = p.rp && p.rp[rid];
