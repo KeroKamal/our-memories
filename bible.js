@@ -546,44 +546,15 @@
   }
 
   /* ---------------- Firestore writes ---------------- */
-  // Each Bible action is recorded in its verse document, so a new verse
-  // (and the first save/note on it) can notify the other person too.
-  function bibleActivity(before, after, actor, key) {
-    if (!actor) return [];
-    var events = [], oldFav = before.fav || {}, newFav = after.fav || {};
-    if (!!oldFav[actor] !== !!newFav[actor])
-      events.push({ kind: newFav[actor] ? 'save' : 'unsave' });
-    var oldNotes = before.notes || [], newNotes = after.notes || [];
-    newNotes.forEach(function (n) {
-      var old = oldNotes.filter(function (x) { return String(x.id) === String(n.id); })[0];
-      if (!old) { if (n.by === actor) events.push({ kind: 'note', nid: n.id, snippet: clip(n.text, 60) }); return; }
-      if ((n.reactions || {})[actor] && (n.reactions || {})[actor] !== (old.reactions || {})[actor])
-        events.push({ kind: 'react-note', nid: n.id, emoji: n.reactions[actor], owner: n.by });
-      (n.replies || []).forEach(function (r) {
-        var oldReply = (old.replies || []).filter(function (x) { return String(x.id) === String(r.id); })[0];
-        if (!oldReply) { if (r.by === actor) events.push({ kind: 'reply', nid: n.id, snippet: clip(r.text, 60), owner: n.by }); return; }
-        if ((r.reactions || {})[actor] && (r.reactions || {})[actor] !== (oldReply.reactions || {})[actor])
-          events.push({ kind: 'react-reply', nid: n.id, emoji: r.reactions[actor], owner: r.by });
-      });
-    });
-    return events.map(function (e, i) {
-      e.id = Date.now() + '-' + Math.random().toString(36).slice(2, 11) + '-' + i;
-      e.t = Date.now(); e.by = actor; e.key = key;
-      return e;
-    });
-  }
   function mutate(b, c, v, en, ar, fn) {
     var key = keyOf(b, c, v), ref = db.collection('bible').doc(key);
     return db.runTransaction(function (tx) {
       return tx.get(ref).then(function (snap) {
         var d = snap.exists ? snap.data() : { key: key, book: b, chapter: c, verse: v, fav: {}, hl: {}, notes: [] };
         d.fav = d.fav || {}; d.hl = d.hl || {}; d.notes = d.notes || [];
-        var before = JSON.parse(JSON.stringify({ fav: d.fav, notes: d.notes }));
         if (en && !d.en) d.en = en;
         if (ar && !d.ar) d.ar = ar;
         fn(d);
-        var acts = bibleActivity(before, d, me(), key);
-        if (acts.length) d.activity = (d.activity || []).concat(acts).slice(-80);
         d.updated = Date.now();
         tx.set(ref, d);
       });
@@ -704,54 +675,53 @@
     var docs = {};
     snap.forEach(function (x) { var d = x.data(); d.key = d.key || x.id; docs[x.id] = d; });
     S.docs = docs;
-    notifyBibleActivity(docs);
+    diffNotes(docs);
     markVerses();
     updateTodayAct();
     if (S.open) renderSheet();
     if (S.tab === 'ours' && !firstShow && !$('screen-bible').classList.contains('hidden')) renderOurs();
   }, function (err) { console.error('bible listener', err); });
 
-  /* ---------------- Bible notifications (both directions) ---------------- */
-  // Store what this device has already seen. Unlike comparing note snapshots,
-  // activity records also work for the FIRST save/note on a new verse.
-  var BACT_KEY = 'bibleActivitySeenV2';
-  var bibleSeen = null;
-  try { bibleSeen = JSON.parse(localStorage.getItem(BACT_KEY) || 'null'); } catch (e) {}
-  if (!bibleSeen || !Array.isArray(bibleSeen.ids)) bibleSeen = { since: Date.now(), ids: [] };
-  var bibleSeenMap = {};
-  bibleSeen.ids.forEach(function (id) { bibleSeenMap[id] = true; });
-  function notifyBibleActivity(docs) {
-    var m = me();
-    if (!m) return;
-    var events = [], ids = [];
+  /* ---------------- notifications for the other person's notes ---------------- */
+  var BKEY = 'bibleBase';
+  function loadBase() { try { return JSON.parse(localStorage.getItem(BKEY) || 'null'); } catch (e) { return null; } }
+  function diffNotes(docs) {
+    var m = me(); if (!m) return;
+    var prev = loadBase(), next = {}, events = [];
+    function ev(actor, icon, msg, sub, key, nid) { events.push({ actor: actor, icon: icon, msg: msg, sub: sub || '', col: 'bible', item: key, rid: nid, why: 'bible' }); }
     Object.keys(docs).forEach(function (key) {
-      var d = docs[key];
-      (d.activity || []).forEach(function (a) {
-        if (!a || !a.id || bibleSeenMap[a.id] || a.t < bibleSeen.since) return;
-        ids.push(a.id);
-        if (a.by === m || (a.by !== 'Kero' && a.by !== 'Tota')) return;
-        var where = refEn(d.book, d.chapter, d.verse), name = nm(a.by);
-        var icon = '', msg = '', sub = a.snippet || '';
-        if (a.kind === 'save') { icon = '⭐'; msg = name + ' saved a verse: ' + where; }
-        else if (a.kind === 'unsave') { icon = '☆'; msg = name + ' removed a saved verse: ' + where; }
-        else if (a.kind === 'note') { icon = '💌'; msg = name + ' wrote a note on ' + where; }
-        else if (a.kind === 'reply') { icon = '💬'; msg = name + ' replied to ' + (a.owner === m ? 'your' : 'a') + ' note on ' + where; }
-        else if (a.kind === 'react-note') { icon = a.emoji || '❤️'; msg = name + ' reacted to ' + (a.owner === m ? 'your' : 'a') + ' note on ' + where; }
-        else if (a.kind === 'react-reply') { icon = a.emoji || '❤️'; msg = name + ' reacted to ' + (a.owner === m ? 'your' : 'a') + ' reply on ' + where; }
-        if (msg) events.push({ actor: a.by, icon: icon, msg: msg, sub: sub, col: 'bible', item: key, rid: a.nid || '', why: 'bible', at: a.t });
+      var d = docs[key], nn = {}, pk = prev && prev[key] || {};
+      var where = refEn(d.book, d.chapter, d.verse);
+      (d.notes || []).forEach(function (n) {
+        var rp = {};
+        (n.replies || []).forEach(function (r) { rp[r.id] = { by: r.by, r: Object.assign({}, r.reactions || {}) }; });
+        var cur = { by: n.by, r: Object.assign({}, n.reactions || {}), rp: rp };
+        nn[n.id] = cur;
+        if (!prev) return;
+        var p = pk[n.id];
+        if (!p) { if (n.by && n.by !== m) ev(n.by, '💌', nm(n.by) + ' wrote a note on ' + where, clip(n.text, 60), key, n.id); return; }
+        Object.keys(cur.r).forEach(function (u) {
+          if (u !== m && cur.r[u] && p.r[u] !== cur.r[u]) ev(u, cur.r[u], nm(u) + ' reacted ' + cur.r[u] + ' to ' + (n.by === m ? 'your' : n.by === u ? 'their own' : nm(n.by) + "'s") + ' note on ' + where, '', key, n.id);
+        });
+        Object.keys(rp).forEach(function (rid) {
+          var c = rp[rid], pr = p.rp && p.rp[rid];
+          if (!pr) {
+            if (c.by && c.by !== m) {
+              var rep = (n.replies || []).filter(function (x) { return String(x.id) === String(rid); })[0];
+              ev(c.by, '💬', nm(c.by) + ' replied to ' + (n.by === m ? 'your' : n.by === c.by ? 'their own' : nm(n.by) + "'s") + ' note on ' + where, clip(rep && rep.text, 60), key, n.id);
+            }
+            return;
+          }
+          Object.keys(c.r).forEach(function (u) {
+            if (u !== m && c.r[u] && pr.r[u] !== c.r[u]) ev(u, c.r[u], nm(u) + ' reacted ' + c.r[u] + ' to ' + (c.by === m ? 'your' : 'a') + ' reply on ' + where, '', key, n.id);
+          });
+        });
       });
+      next[key] = nn;
     });
-    if (ids.length) {
-      ids.forEach(function (id) { bibleSeenMap[id] = true; bibleSeen.ids.push(id); });
-      bibleSeen.ids = bibleSeen.ids.slice(-1500);
-      bibleSeenMap = {};
-      bibleSeen.ids.forEach(function (id) { bibleSeenMap[id] = true; });
-      try { localStorage.setItem(BACT_KEY, JSON.stringify(bibleSeen)); } catch (e) {}
-    }
-    events.sort(function (a, b) { return a.at - b.at; });
-    events.slice(-30).forEach(function (e) {
-      if (typeof window.addNotification === 'function') window.addNotification(e);
-    });
+    try { localStorage.setItem(BKEY, JSON.stringify(next)); } catch (e) {}
+    if (!prev) return;                                   // first time on this phone: just remember
+    events.slice(0, 20).forEach(function (e) { if (typeof window.addNotification === 'function') window.addNotification(e); });
   }
 
   // used by the notification list: open the exact verse / note
