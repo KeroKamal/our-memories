@@ -175,6 +175,13 @@
     /* Same compact action bar and heart buttons used by Journal. */
     '.bb-note-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:10px; padding-top:8px; border-top:1px dashed var(--x2); }',
     '.bb-note-actions .bb-actions-right { display:flex; align-items:center; gap:5px; margin-left:auto; }',
+    /* Compact Journal-style emoji + reactor badge, for Bible notes only. */
+    '.bb-note-actions .bb-note-reactions { display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px; }',
+    '.bb-note-actions .bb-react-badge { display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 9px; min-height:25px; border-radius:9999px; border:1.5px solid transparent; background:rgb(var(--c500-rgb) / .08); font-size:14px; line-height:1.2; cursor:pointer; }',
+    '.bb-note-actions .bb-react-badge small { font-size:10px; letter-spacing:-1px; }',
+    '.bb-note-actions .bb-react-badge.mine { border-color:var(--c400); background:rgb(var(--c500-rgb) / .15); }',
+    'html.dark .bb-note-actions .bb-react-badge { background:rgba(255,255,255,.1); color:var(--x8); }',
+    'html.dark .bb-note-actions .bb-react-badge.mine { background:rgb(var(--c400-rgb) / .25); border-color:var(--c400); }',
     '.bb-note-actions .heart-btn { min-height:28px; color:#64748b; font-weight:700; cursor:pointer; }',
     '.bb-note-actions .heart-btn.liked { color:var(--c600); }',
     '.bb-note-actions .bb-reply-trigger { display:inline-flex; align-items:center; gap:4px; padding:5px 9px; border-radius:9999px; font-size:11px; background:rgba(255,255,255,.7); color:#64748b; font-weight:700; }',
@@ -757,6 +764,10 @@
             if (needUser()) return;
             return toggleNoteHeart(d.book, d.chapter, d.verse, d.en, d.ar, nid);
           }
+          if (act === 'react') {
+            if (needUser()) return;
+            return toggleReaction(d.book, d.chapter, d.verse, d.en, d.ar, nid, '', action.getAttribute('data-e'));
+          }
           // Open only the action sheet, not the full verse popup.
           if (act === 'reply') showActionSheet('replies', nid, {key:d.key, b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar});
           else if (act === 'picknote') showActionSheet('react', nid, {key:d.key, b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar});
@@ -811,12 +822,28 @@
       if (n.hearts[m]) delete n.hearts[m]; else n.hearts[m] = true;
     });
   }
+  // Same saved-reaction display as the Journal/Memories action row:
+  // one compact emoji pill per reaction, with the reactors' profile emojis.
+  function noteReactionBadges(n) {
+    var r = n.reactions || {}, groups = {}, m = me(), id = esc(n.id);
+    Object.keys(r).forEach(function (user) {
+      var e = r[user];
+      if (e) (groups[e] = groups[e] || []).push(user);
+    });
+    var emojis = Object.keys(groups);
+    if (!emojis.length) return '';
+    return '<span class="bb-note-reactions" role="group" aria-label="Note reactions">' + emojis.map(function (e) {
+      var users = groups[e], mine = users.indexOf(m) !== -1;
+      return '<button type="button" class="bb-react-badge' + (mine ? ' mine' : '') + '" data-act="react" data-nid="' + id + '" data-e="' + esc(e) + '" aria-label="Reaction ' + esc(e) + ' from ' + esc(users.map(nm).join(', ')) + '" aria-pressed="' + mine + '"><span>' + esc(e) + '</span><small>' + users.map(function (user) { return esc(emo(user)); }).join('') + '</small></button>';
+    }).join('') + '</span>';
+  }
   function noteActions(n, preview) {
     var m = me(), hearts = n.hearts || {}, liked = !!(m && hearts[m]);
     var count = Object.keys(hearts).filter(function (u) { return !!hearts[u]; }).length;
     var id = esc(n.id), replies = (n.replies || []).length;
     return '<div class="bb-note-actions" role="group" aria-label="Note actions">' +
       (replies ? '<button type="button" class="bb-reply-trigger" data-act="reply" data-nid="' + id + '" aria-label="View replies">💬 ' + replies + (replies === 1 ? ' reply' : ' replies') + '</button>' : '') +
+      noteReactionBadges(n) +
       '<div class="bb-actions-right">' +
         '<button type="button" class="heart-btn' + (liked ? ' liked' : '') + '" data-act="love" data-nid="' + id + '" aria-pressed="' + liked + '" aria-label="Love note"><span>' + (liked ? '❤️' : '🤍') + '</span>' + (count ? '<span style="font-weight:800;color:var(--c500)">' + count + '</span>' : '') + '</button>' +
         '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="picknote" data-nid="' + id + '" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>' +
@@ -900,8 +927,7 @@
              '<div class="tx">' + esc(r.text) + '</div>' + reactRow(r, n.id, r.id) +
              (m && r.by === m ? '<button class="bb-mini del" data-act="delreply" data-nid="' + esc(n.id) + '" data-rid="' + esc(r.id) + '">Delete</button>' : '') + '</div>';
       });
-      h += (Object.keys(n.reactions || {}).filter(function (u) { return n.reactions[u]; }).length ? reactRow(n, n.id, '', false, true) : '') +
-           noteActions(n, false) + '</div>';
+      h += noteActions(n, false) + '</div>';
     });
     var rt = o.replyTo && findNote(d, o.replyTo);
     h += '<div style="margin-top:14px">' +
