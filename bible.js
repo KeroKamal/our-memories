@@ -675,7 +675,19 @@
     var docs = {};
     snap.forEach(function (x) { var d = x.data(); d.key = d.key || x.id; docs[x.id] = d; });
     S.docs = docs;
-    diffNotes(docs);
+    // Open a verse referenced by a tapped phone notification when data arrives.
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var pushVerse = params.get('bibleVerse');
+      if (pushVerse && /^\d+_\d+_\d+$/.test(pushVerse) && docs[pushVerse]) {
+        var pushNote = params.get('bibleNote') || '';
+        params.delete('bibleVerse'); params.delete('bibleNote');
+        history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash);
+        switchScreen('bible');
+        setTimeout(function () { window.bibleOpenVerse(pushVerse, pushNote); }, 250);
+      }
+    } catch (err) { console.warn('Bible push link:', err); }
+    if (!snap.metadata.fromCache || !snap.metadata.hasPendingWrites) diffNotes(docs);
     markVerses();
     updateTodayAct();
     if (S.open) renderSheet();
@@ -683,15 +695,22 @@
   }, function (err) { console.error('bible listener', err); });
 
   /* ---------------- notifications for the other person's notes ---------------- */
-  var BKEY = 'bibleBase';
-  function loadBase() { try { return JSON.parse(localStorage.getItem(BKEY) || 'null'); } catch (e) { return null; } }
+  // Separate baselines by signed-in app profile so switching phones/users is safe.
+  var BKEY = 'bibleBaseV2';
+  function baseKey(user) { return BKEY + ':' + user; }
+  function loadBase(user) { try { return JSON.parse(localStorage.getItem(baseKey(user)) || 'null'); } catch (e) { return null; } }
   function diffNotes(docs) {
     var m = me(); if (!m) return;
-    var prev = loadBase(), next = {}, events = [];
+    var prev = loadBase(m), next = {}, events = [];
     function ev(actor, icon, msg, sub, key, nid) { events.push({ actor: actor, icon: icon, msg: msg, sub: sub || '', col: 'bible', item: key, rid: nid, why: 'bible' }); }
     Object.keys(docs).forEach(function (key) {
       var d = docs[key], nn = {}, pk = prev && prev[key] || {};
+      var oldFav = prev && prev[key] && prev[key].__fav || {};
+      var newFav = Object.assign({}, d.fav || {});
       var where = refEn(d.book, d.chapter, d.verse);
+      if (prev && !oldFav[other(m)] && newFav[other(m)]) {
+        ev(other(m), '⭐', nm(other(m)) + ' saved ' + where, '', key, '');
+      }
       (d.notes || []).forEach(function (n) {
         var rp = {};
         (n.replies || []).forEach(function (r) { rp[r.id] = { by: r.by, r: Object.assign({}, r.reactions || {}) }; });
@@ -701,7 +720,7 @@
         var p = pk[n.id];
         if (!p) { if (n.by && n.by !== m) ev(n.by, '💌', nm(n.by) + ' wrote a note on ' + where, clip(n.text, 60), key, n.id); return; }
         Object.keys(cur.r).forEach(function (u) {
-          if (u !== m && cur.r[u] && p.r[u] !== cur.r[u]) ev(u, cur.r[u], nm(u) + ' reacted ' + cur.r[u] + ' to ' + (n.by === m ? 'your' : n.by === u ? 'their own' : nm(n.by) + "'s") + ' note on ' + where, '', key, n.id);
+          if (u !== m && cur.r[u] && (!p.r || p.r[u] !== cur.r[u])) ev(u, cur.r[u], nm(u) + ' reacted ' + cur.r[u] + ' to ' + (n.by === m ? 'your' : n.by === u ? 'their own' : nm(n.by) + "'s") + ' note on ' + where, '', key, n.id);
         });
         Object.keys(rp).forEach(function (rid) {
           var c = rp[rid], pr = p.rp && p.rp[rid];
@@ -713,14 +732,15 @@
             return;
           }
           Object.keys(c.r).forEach(function (u) {
-            if (u !== m && c.r[u] && pr.r[u] !== c.r[u]) ev(u, c.r[u], nm(u) + ' reacted ' + c.r[u] + ' to ' + (c.by === m ? 'your' : 'a') + ' reply on ' + where, '', key, n.id);
+            if (u !== m && c.r[u] && (!pr.r || pr.r[u] !== c.r[u])) ev(u, c.r[u], nm(u) + ' reacted ' + c.r[u] + ' to ' + (c.by === m ? 'your' : 'a') + ' reply on ' + where, '', key, n.id);
           });
         });
       });
+      nn.__fav = newFav;
       next[key] = nn;
     });
-    try { localStorage.setItem(BKEY, JSON.stringify(next)); } catch (e) {}
-    if (!prev) return;                                   // first time on this phone: just remember
+    try { localStorage.setItem(baseKey(m), JSON.stringify(next)); } catch (e) {}
+    if (!prev) return;                                   // first time for this profile: just remember
     events.slice(0, 20).forEach(function (e) { if (typeof window.addNotification === 'function') window.addNotification(e); });
   }
 
