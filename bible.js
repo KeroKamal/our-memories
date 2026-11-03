@@ -36,7 +36,7 @@
 
   var COLOR = { Kero: 'rgba(251,191,36,.40)', Tota: 'rgba(167,139,250,.42)' };
   var DOT   = { Kero: '#f59e0b', Tota: '#8b5cf6' };
-  var EMOJIS = ['❤️', '😍', '🙏', '🥹', '😂', '👍'];
+  var EMOJIS = ['❤️', '😍', '🙏', '🥹', '😂', '👍', '😮', '🔥', '👏'];
 
   var S = {
     tab: 'today', off: 0, tok: 0,
@@ -184,6 +184,39 @@
     '.bb-note-menu { display:grid; gap:5px; padding:8px; margin-top:8px; border-radius:14px; border:1px solid var(--c100); background:rgba(255,255,255,.7); }',
     '.bb-note-menu button { text-align:left; padding:9px 11px; font-size:13px; font-weight:700; color:var(--c600); border-radius:10px; }',
     '.bb-note-menu button:active { background:var(--c100); }',
+    /* Journal / Memories bottom sheet interaction pattern for Bible note actions. */
+    '#bb-actions-overlay { position:fixed; inset:0; z-index:110; display:none; align-items:flex-end; justify-content:center; background:rgba(15,23,42,.45); }',
+    '#bb-actions-overlay.open { display:flex; }',
+    '#bb-actions-panel { width:100%; max-width:28rem; max-height:88vh; max-height:88dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; background:#fff; border-radius:24px 24px 0 0; padding:16px 20px calc(20px + env(safe-area-inset-bottom)); animation:sheetUp .25s ease; color:#334155; }',
+    '.bb-sheet-handle { width:40px; height:4px; border-radius:999px; background:#e2e8f0; margin:0 auto 16px; }',
+    '.bb-sheet-title { font-family:"Dancing Script",cursive; font-size:29px; font-weight:700; color:var(--c600); text-align:center; margin:0 0 14px; }',
+    '.bb-sheet-btn { width:100%; min-height:50px; padding:14px; margin-bottom:10px; border-radius:16px; background:var(--c50); color:var(--c600); font-weight:700; font-size:15px; display:flex; justify-content:center; align-items:center; gap:8px; text-align:center; }',
+    '.bb-sheet-btn.primary { background:var(--c500); color:#fff; }',
+    '.bb-sheet-btn:active,.bb-react-pick:active { transform:scale(.98); }',
+    '.bb-react-picker { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin-bottom:20px; }',
+    '.bb-react-pick { width:100%; max-width:50px; aspect-ratio:1; border-radius:9999px; font-size:25px; display:flex; align-items:center; justify-content:center; background:var(--c50); border:2px solid transparent; }',
+    '.bb-react-pick.sel { border-color:var(--c500); background:var(--c100); }',
+    '.bb-sheet-quote { font-size:12px; color:#94a3b8; text-align:center; margin:-2px 0 15px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }',
+    '.bb-sheet-reply { background:var(--c50); padding:12px; border-radius:17px; margin-bottom:10px; }',
+    '.bb-sheet-reply.mine { background:var(--c100); }',
+    '.bb-sheet-reply .tx { white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; margin:5px 0; }',
+    '.bb-sheet-reply .who { display:flex; justify-content:space-between; align-items:center; gap:7px; color:var(--c600); font-weight:700; font-size:12px; }',
+    '.bb-sheet-input { width:100%; border:1px solid var(--c100); background:var(--c50); border-radius:17px; padding:13px; font-size:16px; color:#334155; resize:vertical; margin:4px 0 12px; }',
+    '.bb-sheet-reply-tools { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; }',
+    '.bb-sheet-mini { padding:5px 9px; background:var(--c100); color:var(--c600); border-radius:999px; font-size:15px; }',
+    '.bb-sheet-mini.mine { outline:2px solid var(--c500); }',
+    '.bb-sheet-btn:focus-visible,.bb-react-pick:focus-visible,.bb-sheet-mini:focus-visible { outline:2px solid var(--c500); outline-offset:2px; }',
+    'html.dark #bb-actions-overlay { background:rgba(0,0,0,.62); }',
+    'html.dark #bb-actions-panel { background:var(--x9); color:var(--x8); }',
+    'html.dark .bb-sheet-btn { background:var(--x11); color:var(--c300); }',
+    'html.dark .bb-sheet-btn.primary { background:var(--c500); color:#fff; }',
+    'html.dark .bb-react-pick { background:var(--x11); }',
+    'html.dark .bb-react-pick.sel { border-color:var(--c400); background:var(--x7); }',
+    'html.dark .bb-sheet-reply { background:var(--x11); color:var(--x8); }',
+    'html.dark .bb-sheet-reply.mine { background:var(--x7); }',
+    'html.dark .bb-sheet-input { background:var(--x11); border-color:var(--x7); color:var(--x8); }',
+    'html.dark .bb-sheet-mini { background:var(--x7); color:var(--x8); }',
+    'html.dark .bb-sheet-handle { background:var(--x7); }',
     '.bb-note-edit { margin-top:8px; }',
     '.bb-note-edit .bb-input { font-size:16px; }',
     '.bb-preview-note { margin-top:10px; padding-top:8px; border-top:1px solid var(--c100); }',
@@ -260,6 +293,133 @@
   document.body.appendChild(overlay);
   var panel = $('bible-panel');
   var body = $('bb-body');
+
+  // Separate from Journal's global #sheet-overlay so its state and closeSheet()
+  // cannot interfere with a Bible verse that is already open.
+  var actionsOverlay = document.createElement('div');
+  actionsOverlay.id = 'bb-actions-overlay';
+  actionsOverlay.innerHTML = '<div id="bb-actions-panel" role="dialog" aria-modal="true" aria-label="Bible note actions"></div>';
+  document.body.appendChild(actionsOverlay);
+  var actionsPanel = $('bb-actions-panel');
+  var actionSheet = null; // {type, key, nid, pickerReply, draft}
+  actionsOverlay.addEventListener('click', function (e) { if (e.target === actionsOverlay) closeActionSheet(); });
+  function closeActionSheet() {
+    actionsOverlay.classList.remove('open');
+    actionsPanel.innerHTML = '';
+    actionSheet = null;
+  }
+  function sheetNote() {
+    var d = actionSheet && S.docs[actionSheet.key];
+    return d && findNote(d, actionSheet.nid);
+  }
+  function showActionSheet(type, nid) {
+    if (!S.open || !nid) return;
+    actionSheet = { type:type, key:S.open.key, nid:String(nid), pickerReply:null, draft:'' };
+    actionsOverlay.classList.add('open');
+    renderActionSheet(true);
+  }
+  function renderActionSheet(fresh) {
+    if (!actionSheet) return;
+    var a = actionSheet, n = sheetNote();
+    if (!n) { closeActionSheet(); return; }
+    var input = actionsPanel.querySelector('[data-bb-draft]');
+    if (input) a.draft = input.value;
+    var scroll = fresh ? 0 : actionsPanel.scrollTop;
+    var id = esc(n.id), mine = n.by === me(), h = '<div class="bb-sheet-handle"></div>';
+    if (a.type === 'menu') {
+      h += '<button type="button" class="bb-sheet-btn" data-sheet="replies">💬 Reply</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="pin">' + (n.pinned ? '📌 Unpin' : '📌 Pin to top') + '</button>' +
+        (mine ? '<button type="button" class="bb-sheet-btn" data-sheet="edit">✏️ Edit note</button><button type="button" class="bb-sheet-btn" data-sheet="delete">🗑️ Delete note</button>' : '') +
+        '<button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
+    } else if (a.type === 'react') {
+      var options = ['😂','😍','🥹','😮','🔥','👏'];
+      h += '<h3 class="bb-sheet-title">React 💕</h3><div class="bb-react-picker">' + options.map(function(e) {
+        return '<button type="button" class="bb-react-pick' + ((n.reactions || {})[me()] === e ? ' sel' : '') + '" data-sheet="choose" data-e="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
+      }).join('') + '</div><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
+    } else if (a.type === 'replies') {
+      h += '<h3 class="bb-sheet-title">Replies 💬</h3><div class="bb-sheet-quote">“' + esc(clip(n.text, 90)) + '”</div>';
+      var replies = (n.replies || []).slice().sort(function(x,y) {return Number(x.at || x.id)-Number(y.at || y.id);});
+      if (!replies.length) h += '<p class="bb-sheet-quote">No replies yet. Be the first 💕</p>';
+      replies.forEach(function(r) {
+        var mineR = r.by === me();
+        h += '<div class="bb-sheet-reply' + (mineR ? ' mine' : '') + '"><div class="who"><span>' + emo(r.by) + ' ' + esc(nm(r.by)) + ' <span style="font-weight:400;color:#94a3b8">· ' + ago(r.at || r.id) + '</span></span>' +
+          (mineR ? '<button type="button" data-sheet="delreply" data-rid="' + esc(r.id) + '" aria-label="Delete reply">🗑️</button>' : '') + '</div><p class="tx">' + esc(r.text) + '</p>' +
+          '<div class="bb-sheet-reply-tools">';
+        var react = r.reactions || {}, counts = {};
+        Object.keys(react).forEach(function(u) { if(react[u]) counts[react[u]] = (counts[react[u]] || 0)+1; });
+        Object.keys(counts).forEach(function(e) {
+          h += '<button type="button" class="bb-sheet-mini' + (react[me()] === e ? ' mine' : '') + '" data-sheet="replyreact" data-rid="' + esc(r.id) + '" data-e="' + esc(e) + '">' + esc(e) + (counts[e] > 1 ? ' ' + counts[e] : '') + '</button>';
+        });
+        h += '<button type="button" class="bb-sheet-mini" data-sheet="replypicker" data-rid="' + esc(r.id) + '" aria-label="React to reply"><i class="far fa-face-smile"></i></button></div>';
+        if (String(a.pickerReply) === String(r.id)) h += '<div class="bb-react-picker" style="margin-top:9px;margin-bottom:0">' + ['😂','😍','🥹','😮','🔥','👏'].map(function(e) {
+          return '<button type="button" class="bb-react-pick' + (react[me()] === e ? ' sel' : '') + '" data-sheet="replyreact" data-rid="' + esc(r.id) + '" data-e="' + e + '">' + e + '</button>';
+        }).join('') + '</div>';
+        h += '</div>';
+      });
+      h += '<textarea class="bb-sheet-input" rows="2" maxlength="500" data-bb-draft placeholder="Write a reply…"></textarea>' +
+        '<button type="button" class="bb-sheet-btn primary" data-sheet="sendreply">Send reply 💕</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="close">Close</button>';
+    } else if (a.type === 'edit' && mine) {
+      if (fresh) a.draft = n.text;
+      h += '<h3 class="bb-sheet-title">Edit note ✏️</h3><textarea class="bb-sheet-input" rows="4" maxlength="5000" data-bb-draft></textarea>' +
+        '<button type="button" class="bb-sheet-btn primary" data-sheet="saveedit">Save 💕</button><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
+    } else if (a.type === 'delete' && mine) {
+      h += '<h3 class="bb-sheet-title">Delete note? 🗑️</h3><button type="button" class="bb-sheet-btn primary" data-sheet="confirmdelete">Yes, delete it</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="close">Keep it 💕</button>';
+    } else { closeActionSheet(); return; }
+    actionsPanel.innerHTML = h;
+    var field = actionsPanel.querySelector('[data-bb-draft]'); if(field) field.value = a.draft;
+    actionsPanel.scrollTop = scroll;
+  }
+  actionsPanel.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-sheet]'); if (!btn || !actionSheet) return;
+    var type = btn.getAttribute('data-sheet'), a = actionSheet, n = sheetNote(), m = me();
+    if (!n) return closeActionSheet();
+    var o = S.open;
+    if (!o || o.key !== a.key) return closeActionSheet();
+    if (type === 'close') return closeActionSheet();
+    if (type === 'replies' || type === 'edit' || type === 'delete') {
+      if ((type === 'edit' || type === 'delete') && n.by !== m) return;
+      a.type = type; a.pickerReply = null; a.draft = ''; return renderActionSheet(true);
+    }
+    if (needUser()) return;
+    if (type === 'choose') {
+      var emoji = btn.getAttribute('data-e');
+      closeActionSheet(); return toggleReaction(o.b,o.c,o.v,o.en,o.ar,n.id,'',emoji);
+    }
+    if (type === 'pin') {
+      closeActionSheet(); return mutate(o.b,o.c,o.v,o.en,o.ar,function(d) {var note=findNote(d,n.id); if(note) note.pinned=!note.pinned;});
+    }
+    if (type === 'replypicker') {
+      var rid = btn.getAttribute('data-rid'); a.pickerReply = String(a.pickerReply) === String(rid) ? null : rid; return renderActionSheet(false);
+    }
+    if (type === 'replyreact') {
+      var rr = btn.getAttribute('data-rid'), em = btn.getAttribute('data-e');
+      a.pickerReply = null;
+      return toggleReaction(o.b,o.c,o.v,o.en,o.ar,n.id,rr,em).then(function(){if(actionSheet) renderActionSheet(false);});
+    }
+    if (type === 'delreply') {
+      var delid = btn.getAttribute('data-rid');
+      var target = (n.replies || []).filter(function(r){return String(r.id) === String(delid);})[0];
+      if (!target || target.by !== m || !confirm('Delete this reply?')) return;
+      return mutate(o.b,o.c,o.v,o.en,o.ar,function(d){var note=findNote(d,n.id); if(note) note.replies=(note.replies||[]).filter(function(r){return String(r.id)!==String(delid) || r.by!==m;});});
+    }
+    var input = actionsPanel.querySelector('[data-bb-draft]'), value = input ? input.value.trim() : '';
+    if (type === 'sendreply') {
+      if (!value) return toast('Write a reply first 💕');
+      a.draft = ''; if(input) input.value = '';
+      return mutate(o.b,o.c,o.v,o.en,o.ar,function(d){var note=findNote(d,n.id); if(note){var id=Date.now();note.replies=note.replies||[]; note.replies.push({id:id,by:m,text:value,at:id,reactions:{}});}}).then(function(){ if(actionSheet) renderActionSheet(false); });
+    }
+    if (type === 'saveedit') {
+      if (n.by !== m || !value) return toast('The note cannot be empty 💕');
+      closeActionSheet(); return mutate(o.b,o.c,o.v,o.en,o.ar,function(d){var note=findNote(d,n.id);if(note && note.by===m) note.text=value;});
+    }
+    if (type === 'confirmdelete') {
+      if (n.by !== m) return;
+      closeActionSheet(); return mutate(o.b,o.c,o.v,o.en,o.ar,function(d){d.notes=(d.notes||[]).filter(function(note){return String(note.id)!==String(n.id) || note.by!==m;});});
+    }
+  });
+
 
   /* ---------------- tabs ---------------- */
   $('bb-tabs').addEventListener('click', function (e) {
@@ -584,11 +744,11 @@
             if (needUser()) return;
             return toggleNoteHeart(d.book, d.chapter, d.verse, d.en, d.ar, nid);
           }
-          // The verse panel contains the same picker/menu as Journal-style notes.
-          S.picker = act === 'picknote' ? String(nid) : null;
-          S.menu = act === 'notenmenu' ? String(nid) : null;
-          openSheet(d.book, d.chapter, d.verse, d.en, d.ar, true);
-          if (act === 'reply') { S.open.replyTo = String(nid); renderSheet(); var t = $('bb-note-in'); if (t) t.focus(); }
+          // Keep the verse open behind the Journal-style Bible bottom sheet.
+          openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
+          if (act === 'reply') showActionSheet('replies', nid);
+          else if (act === 'picknote') showActionSheet('react', nid);
+          else if (act === 'notenmenu') showActionSheet('menu', nid);
           return;
         }
         openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
@@ -649,7 +809,7 @@
         '<button type="button" class="heart-btn' + (liked ? ' liked' : '') + '" data-act="love" data-nid="' + id + '" aria-pressed="' + liked + '" aria-label="Love note"><span>' + (liked ? '❤️' : '🤍') + '</span>' + (count ? '<span style="font-weight:800;color:var(--c500)">' + count + '</span>' : '') + '</button>' +
         '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="picknote" data-nid="' + id + '" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>' +
         '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="notenmenu" data-nid="' + id + '" aria-label="More note options"><i class="fas fa-ellipsis"></i></button>' +
-      '</div></div>' + (preview ? '' : noteExtras(n));
+      '</div></div>';
   }
   function noteExtras(n) {
     var id = esc(n.id), mine = me() && me() === n.by;
@@ -684,14 +844,14 @@
     overlay.classList.add('open');
     renderSheet();
   }
-  function closeSheet() { overlay.classList.remove('open'); S.open = null; S.picker = null; S.menu = null; S.editNote = null; }
+  function closeSheet() { closeActionSheet(); overlay.classList.remove('open'); S.open = null; S.picker = null; S.menu = null; S.editNote = null; }
   overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSheet(); });
 
   function reactRow(target, nid, rid, preview, compact) {
     var m = me(), r = (target && target.reactions) || {};
     var counts = {};
     Object.keys(r).forEach(function (u) { if (r[u]) counts[r[u]] = (counts[r[u]] || 0) + 1; });
-    var labels = ['Love', 'Heart eyes', 'Pray', 'Touched', 'Laugh', 'Like'];
+    var labels = ['Love', 'Heart eyes', 'Pray', 'Touched', 'Laugh', 'Like', 'Surprised', 'Fire', 'Clap'];
     var h = '<div class="bb-chips' + (preview ? ' bb-preview-react' : '') + '" role="group" aria-label="React to ' + (rid ? 'reply' : 'note') + '">';
     if (preview) h += '<span class="bb-react-caption">React</span>';
     EMOJIS.forEach(function (e, i) {
@@ -749,12 +909,12 @@
     var nid = a.getAttribute('data-nid'), rid = a.getAttribute('data-rid');
     if (act === 'close') return closeSheet();
     if (act === 'cancelreply') { o.replyTo = null; return renderSheet(); }
-    if (act === 'reply') { S.picker = null; S.menu = null; o.replyTo = nid; renderSheet(); var t = $('bb-note-in'); if (t) t.focus(); return; }
+    if (act === 'reply') return showActionSheet('replies', nid);
     if (needUser()) return;
     function run(fn) { return mutate(o.b, o.c, o.v, o.en, o.ar, fn); }
     if (act === 'love') return toggleNoteHeart(o.b, o.c, o.v, o.en, o.ar, nid);
-    if (act === 'picknote') { S.picker = S.picker === String(nid) ? null : String(nid); S.menu = null; S.editNote = null; renderSheet(); return; }
-    if (act === 'notenmenu') { S.menu = S.menu === String(nid) ? null : String(nid); S.picker = null; S.editNote = null; renderSheet(); return; }
+    if (act === 'picknote') return showActionSheet('react', nid);
+    if (act === 'notenmenu') return showActionSheet('menu', nid);
     if (act === 'pinnote') { S.menu = null; return run(function (d) { var n = findNote(d, nid); if (n) n.pinned = !n.pinned; }); }
     if (act === 'editnote') {
       var n = findNote(S.docs[o.key] || {}, nid);
@@ -820,6 +980,7 @@
     markVerses();
     updateTodayAct();
     if (S.open) renderSheet();
+    if (actionSheet) renderActionSheet(false);
     if (S.tab === 'ours' && !firstShow && !$('screen-bible').classList.contains('hidden')) renderOurs();
   }, function (err) { console.error('bible listener', err); });
 
