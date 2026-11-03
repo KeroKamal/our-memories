@@ -114,12 +114,9 @@
     '@import url("https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600&display=swap");',
     '.bottom-nav .nav-bubble { width: calc(100% / 6) !important; }',
     '.bb-card { background: #fff; border: 1px solid var(--c100); border-radius: 24px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }',
-    '.bb-head { text-align: center; padding: 2px 0 10px; }',
-    '.bb-head h3 { font-family: "Dancing Script", cursive; font-size: 1.9rem; font-weight: 700; color: var(--c600); line-height: 1.1; }',
-    '.bb-head p { font-size: 11px; color: #94a3b8; margin-top: 2px; }',
-    '.bb-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }',
-    '.bb-tab { padding: 8px 2px; border-radius: 14px; font-size: 12px; font-weight: 700; color: #64748b; background: var(--c50); border: 1px solid transparent; }',
-    '.bb-tab.on { background: var(--c500); color: #fff; box-shadow: 0 3px 10px rgb(var(--c500-rgb) / .3); }',
+    /* Match the Our list controls by reusing its type-pill/sel classes. */
+    '.bb-tabs { display: flex; gap: 8px; }',
+    '.bb-tabs .bb-tab { min-width: 0; }',
     '.bb-ar { font-family: "Noto Naskh Arabic", "Amiri", serif; direction: rtl; text-align: right; line-height: 2.05; }',
     '.bb-votd { border-radius: 24px; padding: 18px; color: #fff; background: linear-gradient(135deg, var(--c400), var(--c500) 50%, var(--acc2)); box-shadow: 0 8px 22px rgb(var(--c500-rgb) / .28); }',
     '.bb-votd .lbl { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .85; }',
@@ -176,10 +173,10 @@
     /* dark mode */
     'html.dark .bb-votd { background: linear-gradient(135deg, var(--x3) 0%, var(--x4) 45%, var(--acc2d) 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }',
     'html.dark .bb-card, html.dark #bible-panel, html.dark .bb-saved, html.dark .bb-reply { background: var(--x9); border-color: var(--x11); }',
-    'html.dark .bb-tab, html.dark .bb-seg, html.dark .bb-bk, html.dark .bb-btn { background: var(--x11); border-color: var(--x7); color: var(--x12); }',
+    'html.dark .bb-seg, html.dark .bb-bk, html.dark .bb-btn { background: var(--x11); border-color: var(--x7); color: var(--x12); }',
     'html.dark .bb-btn.glass { background: linear-gradient(135deg, rgba(244,63,94,.38), rgba(168,85,247,.38)); border-color: rgba(255,255,255,.20); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }',
     'html.dark .bb-btn.glass.on { background: linear-gradient(135deg, rgba(244,63,94,.52), rgba(168,85,247,.52)); border-color: rgba(255,255,255,.32); color: #fff; }',
-    'html.dark .bb-tab.on, html.dark .bb-btn.solid, html.dark .bb-seg button.on { background: var(--c500); color: #fff; }',
+    'html.dark .bb-btn.solid, html.dark .bb-seg button.on { background: var(--c500); color: #fff; }',
     'html.dark .bb-btn.on { background: var(--x7); border-color: var(--c400); }',
     'html.dark .bb-sel, html.dark .bb-input { background: var(--x11); border-color: var(--x7); color: var(--x8); }',
     'html.dark .bb-seg button { color: var(--x13); }',
@@ -202,12 +199,12 @@
   section.id = 'screen-bible';
   section.className = 'space-y-4 hidden';
   section.innerHTML =
-    '<div class="bb-card">' +
-      '<div class="bb-head"><h3>Our Bible ✝️</h3></div>' +
-      '<div class="bb-tabs" id="bb-tabs" style="grid-template-columns:repeat(3,1fr)">' +
-        '<button class="bb-tab on" data-t="today">🌅 Today</button>' +
-        '<button class="bb-tab" data-t="read">📖 Read</button>' +
-        '<button class="bb-tab" data-t="ours">💛 Ours</button>' +
+    '<div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4">' +
+      '<div class="text-center"><h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Our Bible ✝️</h3></div>' +
+      '<div class="bb-tabs" id="bb-tabs">' +
+        '<button type="button" class="type-pill bb-tab sel on" data-t="today" aria-pressed="true">🌅 Today</button>' +
+        '<button type="button" class="type-pill bb-tab" data-t="read" aria-pressed="false">📖 Read</button>' +
+        '<button type="button" class="type-pill bb-tab" data-t="ours" aria-pressed="false">💛 Ours</button>' +
       '</div>' +
     '</div>' +
     '<div id="bb-body"></div>';
@@ -240,7 +237,12 @@
   });
   function setTab(t) {
     S.tab = t;
-    Array.prototype.forEach.call(document.querySelectorAll('#bb-tabs .bb-tab'), function (b) { b.classList.toggle('on', b.getAttribute('data-t') === t); });
+    Array.prototype.forEach.call(document.querySelectorAll('#bb-tabs .bb-tab'), function (b) {
+      var active = b.getAttribute('data-t') === t;
+      b.classList.toggle('on', active);
+      b.classList.toggle('sel', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
     render();
   }
   function render() {
