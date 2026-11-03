@@ -40,6 +40,12 @@ function changedEvents(before, after) {
         add(actor, '❤️ Bible note reaction', `${actor} reacted ${emoji} to a note on ${ref}`, nid);
       }
     }
+    // Journal-style love hearts are separate from emoji reactions, one per user.
+    for (const [actor, loved] of Object.entries(reacts(note.hearts))) {
+      if (loved && !reacts(old.hearts)[actor]) {
+        add(actor, '❤️ Bible note loved', `${actor} loved a Bible note on ${ref}`, nid);
+      }
+    }
     const oldReplies = indexed(old.replies);
     for (const [rid, reply] of Object.entries(indexed(note.replies))) {
       const oldReply = oldReplies[rid];
