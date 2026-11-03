@@ -306,15 +306,20 @@
   function closeActionSheet() {
     actionsOverlay.classList.remove('open');
     actionsPanel.innerHTML = '';
+    if (actionSheet && actionSheet.restoreVerse && S.open) overlay.classList.add('open');
     actionSheet = null;
   }
   function sheetNote() {
     var d = actionSheet && S.docs[actionSheet.key];
     return d && findNote(d, actionSheet.nid);
   }
-  function showActionSheet(type, nid) {
-    if (!S.open || !nid) return;
-    actionSheet = { type:type, key:S.open.key, nid:String(nid), pickerReply:null, draft:'' };
+  function showActionSheet(type, nid, verse) {
+    // Preview cards pass their own verse context: never open a verse behind the sheet.
+    var ctx = verse || S.open;
+    if (!ctx || !nid) return;
+    var restoreVerse = !!(S.open && overlay.classList.contains('open'));
+    if (restoreVerse) overlay.classList.remove('open');
+    actionSheet = { type:type, key:ctx.key || keyOf(ctx.b,ctx.c,ctx.v), b:ctx.b, c:ctx.c, v:ctx.v, en:ctx.en, ar:ctx.ar, nid:String(nid), pickerReply:null, draft:'', restoreVerse:restoreVerse };
     actionsOverlay.classList.add('open');
     renderActionSheet(true);
   }
@@ -375,8 +380,8 @@
     var btn = e.target.closest('[data-sheet]'); if (!btn || !actionSheet) return;
     var type = btn.getAttribute('data-sheet'), a = actionSheet, n = sheetNote(), m = me();
     if (!n) return closeActionSheet();
-    var o = S.open;
-    if (!o || o.key !== a.key) return closeActionSheet();
+    // Sheet actions can be launched directly from Ours, without opening a verse.
+    var o = a;
     if (type === 'close') return closeActionSheet();
     if (type === 'replies' || type === 'edit' || type === 'delete') {
       if ((type === 'edit' || type === 'delete') && n.by !== m) return;
@@ -465,6 +470,8 @@
     ['Kero', 'Tota'].forEach(function (u) { if (d.fav && d.fav[u]) s += '<span title="' + esc(nm(u)) + '" style="color:' + DOT[u] + '">★</span>'; });
     var n = (d.notes || []).length;
     if (n) s += ' <span style="color:var(--c500)">💬' + n + '</span>';
+    // Display the pin next to the note count at the top-right of the verse card.
+    if ((d.notes || []).some(function(note) {return !!note.pinned;})) s += ' <span title="Pinned note" aria-label="Pinned note">📌</span>';
     return s;
   }
   function markVerses() {
@@ -744,11 +751,10 @@
             if (needUser()) return;
             return toggleNoteHeart(d.book, d.chapter, d.verse, d.en, d.ar, nid);
           }
-          // Keep the verse open behind the Journal-style Bible bottom sheet.
-          openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
-          if (act === 'reply') showActionSheet('replies', nid);
-          else if (act === 'picknote') showActionSheet('react', nid);
-          else if (act === 'notenmenu') showActionSheet('menu', nid);
+          // Open only the action sheet, not the full verse popup.
+          if (act === 'reply') showActionSheet('replies', nid, {key:d.key, b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar});
+          else if (act === 'picknote') showActionSheet('react', nid, {key:d.key, b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar});
+          else if (act === 'notenmenu') showActionSheet('menu', nid, {key:d.key, b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar});
           return;
         }
         openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
@@ -804,7 +810,7 @@
     var count = Object.keys(hearts).filter(function (u) { return !!hearts[u]; }).length;
     var id = esc(n.id), replies = (n.replies || []).length;
     return '<div class="bb-note-actions" role="group" aria-label="Note actions">' +
-      '<button type="button" class="bb-reply-trigger" data-act="reply" data-nid="' + id + '" aria-label="Reply to note">💬 ' + replies + (replies === 1 ? ' reply' : ' replies') + '</button>' +
+      (replies ? '<button type="button" class="bb-reply-trigger" data-act="reply" data-nid="' + id + '" aria-label="View replies">💬 ' + replies + (replies === 1 ? ' reply' : ' replies') + '</button>' : '') +
       '<div class="bb-actions-right">' +
         '<button type="button" class="heart-btn' + (liked ? ' liked' : '') + '" data-act="love" data-nid="' + id + '" aria-pressed="' + liked + '" aria-label="Love note"><span>' + (liked ? '❤️' : '🤍') + '</span>' + (count ? '<span style="font-weight:800;color:var(--c500)">' + count + '</span>' : '') + '</button>' +
         '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="picknote" data-nid="' + id + '" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>' +
