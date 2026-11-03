@@ -174,6 +174,7 @@
     '.bb-flash { animation: bbfl 2.2s ease; }',
     '@keyframes bbfl { 0%,60% { box-shadow: 0 0 0 3px var(--c400); } 100% { box-shadow: 0 0 0 0 transparent; } }',
     /* dark mode */
+    'html.dark .bb-votd { background: linear-gradient(135deg, var(--x3) 0%, var(--x4) 45%, var(--acc2d) 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }',
     'html.dark .bb-card, html.dark #bible-panel, html.dark .bb-saved, html.dark .bb-reply { background: var(--x9); border-color: var(--x11); }',
     'html.dark .bb-tab, html.dark .bb-seg, html.dark .bb-bk, html.dark .bb-btn { background: var(--x11); border-color: var(--x7); color: var(--x12); }',
     'html.dark .bb-btn.glass { background: linear-gradient(135deg, rgba(244,63,94,.38), rgba(168,85,247,.38)); border-color: rgba(255,255,255,.20); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }',
