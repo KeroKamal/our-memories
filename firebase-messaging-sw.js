@@ -25,7 +25,7 @@ messaging.onBackgroundMessage(function (payload) {
     body: d.body || '',
     icon: ICON,
     badge: ICON,
-    data: { url: d.url || self.registration.scope }
+    data: { url: d.url ? new URL(d.url, self.registration.scope).href : self.registration.scope }
   };
   if (d.tag) options.tag = d.tag;               // same tag = replaces the older one (no spam when 5 photos are added)
   return self.registration.showNotification(d.title || 'Kero & Tota 💖', options);
@@ -37,7 +37,15 @@ self.addEventListener('notificationclick', function (event) {
   const url = (event.notification.data && event.notification.data.url) || self.registration.scope;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
-      for (const c of list) { if ('focus' in c) return c.focus(); }
+      // Navigate existing app window as well: otherwise tapping a Bible push
+      // focuses the app but loses its verse deep link.
+      for (const c of list) {
+        if ('focus' in c) {
+          return Promise.resolve(c.navigate ? c.navigate(url) : c).then(function (target) {
+            return (target || c).focus();
+          });
+        }
+      }
       return self.clients.openWindow(url);
     })
   );
