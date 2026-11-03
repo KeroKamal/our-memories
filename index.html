@@ -4330,7 +4330,7 @@ html[data-color="berry"] {
     function hs(s) { s = String(s == null ? '' : s); var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h + ':' + s.length; }
     function load(k, fb) { try { var v = JSON.parse(sget(k) || 'null'); return v == null ? fb : v; } catch (e) { return fb; } }
 
-    var SCREEN = { photos: 'photos', journal: 'journal', bucket: 'list', dates: 'dates' };
+    var SCREEN = { photos: 'photos', journal: 'journal', bucket: 'list', dates: 'dates', bible: 'bible' };
     var LIST = load(LIST_KEY, []);
     var BASE = load(BASE_KEY, {});
     var readAt = Number(sget(READ_KEY)) || 0;
@@ -4578,6 +4578,11 @@ html[data-color="berry"] {
       try { if (typeof closeSheet === 'function') closeSheet(); } catch (e) {}
       var modal = document.getElementById('image-modal');
       try { if (modal && modal.classList.contains('open') && typeof closeModal === 'function') closeModal(); } catch (e) {}
+      if (col === 'bible') {                                   // Bible notes live in bible.js
+        try { switchScreen('bible'); } catch (e) {}
+        setTimeout(function () { if (window.bibleOpenVerse) window.bibleOpenVerse(n.item, n.rid); }, 350);
+        return;
+      }
       try { switchScreen(SCREEN[col] || 'photos'); } catch (e) {}
       if (n.why === 'del' || !id || !itemOf2(col, id)) {
         if (typeof showToast === 'function') showToast(n.why === 'del' ? 'That one was deleted 🗑️' : 'This is no longer here');
@@ -4617,6 +4622,18 @@ html[data-color="berry"] {
         if (loaded(col)) process(col, a);
       });
     }, 600);
+
+    // lets other files (bible.js) add a notification to this list
+    window.addNotification = function (e) {
+      var now = Date.now();
+      e.t = now; e.id = now + '-x-' + Math.random().toString(36).slice(2, 6);
+      LIST.unshift(e); LIST = LIST.slice(0, MAX_KEEP);
+      sset(LIST_KEY, JSON.stringify(LIST));
+      render();
+      var bell = document.getElementById('notif-btn');
+      if (bell) { bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring'); }
+      if (!panelOpen() && typeof showToast === 'function') showToast(e.icon + ' ' + e.msg);
+    };
 
     render();
   })();
@@ -4711,5 +4728,7 @@ html[data-color="berry"] {
   })();
   </script>
   <!-- =================== end Phone push notifications (added) =================== -->
+  <!-- Bible screen (separate file) -->
+  <script src="bible.js"></script>
 </body>
 </html>
