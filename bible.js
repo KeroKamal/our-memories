@@ -162,9 +162,15 @@
     '.bb-note .who span.t { font-weight: 500; color: #94a3b8; font-size: 10.5px; }',
     '.bb-note .tx { font-size: 14px; line-height: 1.55; color: #334155; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }',
     '.bb-reply { margin: 8px 0 0 14px; padding: 8px 10px; background: #fff; border-radius: 12px; border-inline-start: 3px solid var(--c300); }',
-    '.bb-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center; }',
-    '.bb-chip { font-size: 13px; padding: 2px 7px; border-radius: 9999px; background: rgba(255,255,255,.8); border: 1px solid transparent; line-height: 1.5; }',
-    '.bb-chip.mine { border-color: var(--c400); background: var(--c100); }',
+    '.bb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }',
+    '.bb-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 33px; min-height: 32px; font-size: 17px; line-height: 1.2; padding: 5px 7px; border-radius: 9999px; background: #fff; border: 1px solid var(--c200); color: #334155; opacity: 1; filter: none; transition: background .15s, border-color .15s, transform .15s; }',
+    '.bb-chip:hover { background: var(--c50); border-color: var(--c400); }',
+    '.bb-chip:active { transform: scale(.94); }',
+    '.bb-chip:focus-visible { outline: 2px solid var(--c500); outline-offset: 2px; }',
+    '.bb-chip.mine { border: 2px solid var(--c500); background: var(--c100); padding: 4px 6px; }',
+    '.bb-chip-count { font-size: 11px; font-weight: 800; color: var(--c600); }',
+    '.bb-preview-react { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--c100); }',
+    '.bb-react-caption { font-size: 11px; font-weight: 800; color: var(--c600); margin-right: 3px; }',
     '.bb-mini { font-size: 11px; font-weight: 700; color: var(--c600); padding: 2px 6px; }',
     '.bb-mini.del { color: #94a3b8; }',
     '.bb-input { width: 100%; border: 1px solid var(--c200); border-radius: 14px; padding: 10px 12px; font-size: 14px; background: #fff; color: #334155; resize: none; }',
@@ -188,8 +194,11 @@
     'html.dark #bible-panel div[style*="background:var(--c50)"] .bb-ar { color: var(--x8) !important; }',
     'html.dark #bible-panel [style*="color:var(--c600)"] { color: var(--x8) !important; }',
     'html.dark #bible-panel .bb-empty { color: var(--x13); }',
-    'html.dark .bb-chip { background: rgba(255,255,255,.08); }',
-    'html.dark .bb-chip.mine { background: var(--x7); border-color: var(--c400); }',
+    'html.dark .bb-chip { background: var(--x7); border-color: rgba(255,255,255,.22); color: var(--x8); opacity: 1; filter: none; }',
+    'html.dark .bb-chip:hover { background: var(--x11); border-color: var(--c400); }',
+    'html.dark .bb-chip.mine { background: rgba(244,63,94,.23); border-color: var(--c400); }',
+    'html.dark .bb-chip-count, html.dark .bb-react-caption { color: var(--x8); }',
+    'html.dark .bb-preview-react { border-top-color: var(--x7); }',
     'html.dark .bb-skel { background: linear-gradient(90deg, var(--x11), var(--x7), var(--x11)); background-size: 200% 100%; }'
   ].join('\n');
   document.head.appendChild(css);
@@ -535,7 +544,7 @@
         '<div class="rf">' + esc(refEn(d.book, d.chapter, d.verse)) + ' · ' + esc(refAr(d.book, d.chapter, d.verse)) + ' <span style="float:right">' + marksHtml(d) + '</span></div>' +
         (d.en ? '<div style="font-size:14px;line-height:1.55;margin-top:5px">' + esc(clip(d.en, 220)) + '</div>' : '') +
         (d.ar ? '<div class="bb-ar" style="font-size:16px;margin-top:4px">' + esc(clip(d.ar, 220)) + '</div>' : '') +
-        (last ? '<div style="font-size:12px;color:#64748b;margin-top:6px">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': ' + esc(clip(last.text, 90)) + '</div>' : '') +
+        (last ? '<div style="font-size:12px;color:#64748b;margin-top:6px">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': ' + esc(clip(last.text, 90)) + '</div>' + reactRow(last, last.id, '', true) : '') +
         '</div>';
     }).join('');
     body.innerHTML = h + '</div>';
@@ -543,7 +552,18 @@
       x.onclick = function () { S.filter = x.getAttribute('data-f'); renderOurs(); };
     });
     Array.prototype.forEach.call(body.querySelectorAll('.bb-saved'), function (x) {
-      x.onclick = function () { var d = S.docs[x.getAttribute('data-k')]; if (d) openSheet(d.book, d.chapter, d.verse, d.en, d.ar); };
+      x.onclick = function (e) {
+        var d = S.docs[x.getAttribute('data-k')]; if (!d) return;
+        var reactionButton = e.target.closest('[data-act="react"]');
+        if (reactionButton && x.contains(reactionButton)) {
+          // React right here in Ours; don't open the verse sheet as a side effect.
+          e.preventDefault(); e.stopPropagation();
+          if (needUser()) return;
+          return toggleReaction(d.book, d.chapter, d.verse, d.en, d.ar,
+            reactionButton.getAttribute('data-nid'), '', reactionButton.getAttribute('data-e'));
+        }
+        openSheet(d.book, d.chapter, d.verse, d.en, d.ar);
+      };
     });
   }
 
@@ -564,6 +584,21 @@
   }
   function findNote(d, id) { return (d.notes || []).filter(function (n) { return String(n.id) === String(id); })[0]; }
 
+  // Shared by the Ours card and the verse sheet. Reuses the existing Firestore
+  // note.reactions/reply.reactions format so both notification paths detect it.
+  function toggleReaction(b, c, v, en, ar, nid, rid, emoji) {
+    if (EMOJIS.indexOf(emoji) < 0) return;
+    var m = me(); if (!m) return;
+    return mutate(b, c, v, en, ar, function (d) {
+      var note = findNote(d, nid); if (!note) return;
+      var target = rid ? (note.replies || []).filter(function (r) { return String(r.id) === String(rid); })[0] : note;
+      if (!target) return;
+      target.reactions = target.reactions || {};
+      if (target.reactions[m] === emoji) delete target.reactions[m];
+      else target.reactions[m] = emoji;
+    });
+  }
+
   /* ---------------- verse sheet ---------------- */
   function openSheet(b, c, v, en, ar) {
     var t = cachedText(b, c, v);
@@ -575,20 +610,18 @@
   function closeSheet() { overlay.classList.remove('open'); S.open = null; }
   overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSheet(); });
 
-  function reactRow(target, nid, rid) {
+  function reactRow(target, nid, rid, preview) {
     var m = me(), r = (target && target.reactions) || {};
     var counts = {};
-    Object.keys(r).forEach(function (u) { if (r[u]) (counts[r[u]] = counts[r[u]] || []).push(u); });
-    var h = '<div class="bb-chips">';
-    EMOJIS.forEach(function (e) {
-      var users = counts[e] || [], mine = m && r[m] === e;
-      if (!users.length && !mine) return;
-      h += '<button class="bb-chip ' + (mine ? 'mine' : '') + '" data-act="react" data-nid="' + nid + '" data-rid="' + (rid || '') + '" data-e="' + e + '">' + e + (users.length > 1 ? ' ' + users.length : '') + '</button>';
+    Object.keys(r).forEach(function (u) { if (r[u]) counts[r[u]] = (counts[r[u]] || 0) + 1; });
+    var labels = ['Love', 'Heart eyes', 'Pray', 'Touched', 'Laugh', 'Like'];
+    var h = '<div class="bb-chips' + (preview ? ' bb-preview-react' : '') + '" role="group" aria-label="React to ' + (rid ? 'reply' : 'note') + '">';
+    if (preview) h += '<span class="bb-react-caption">React</span>';
+    EMOJIS.forEach(function (e, i) {
+      var mine = !!(m && r[m] === e), count = counts[e] || 0;
+      h += '<button type="button" class="bb-chip' + (mine ? ' mine' : '') + '" data-act="react" data-nid="' + esc(nid) + '" data-rid="' + esc(rid || '') + '" data-e="' + e + '" aria-pressed="' + mine + '" aria-label="' + labels[i] + (count ? ', ' + count + ' reactions' : '') + '" title="' + labels[i] + '">' + e + (count ? '<span class="bb-chip-count">' + count + '</span>' : '') + '</button>';
     });
-    h += '<span style="flex:1"></span>';
-    h += '<span class="bb-pick" style="display:inline-flex;gap:2px">';
-    EMOJIS.forEach(function (e) { h += '<button class="bb-chip" style="opacity:.55" data-act="react" data-nid="' + nid + '" data-rid="' + (rid || '') + '" data-e="' + e + '">' + e + '</button>'; });
-    return h + '</span></div>';
+    return h + '</div>';
   }
   function renderSheet() {
     var o = S.open; if (!o) return;
@@ -638,15 +671,7 @@
     function run(fn) { return mutate(o.b, o.c, o.v, o.en, o.ar, fn); }
     if (act === 'fav') return run(function (d) { d.fav[m] = !d.fav[m]; });
     if (act === 'react') {
-      var em = a.getAttribute('data-e');
-      return run(function (d) {
-        var n = findNote(d, nid); if (!n) return;
-        var tgt = n;
-        if (rid) tgt = (n.replies || []).filter(function (r) { return String(r.id) === String(rid); })[0];
-        if (!tgt) return;
-        tgt.reactions = tgt.reactions || {};
-        if (tgt.reactions[m] === em) delete tgt.reactions[m]; else tgt.reactions[m] = em;
-      });
+      return toggleReaction(o.b, o.c, o.v, o.en, o.ar, nid, rid, a.getAttribute('data-e'));
     }
     if (act === 'delnote') {
       if (!confirm('Delete this note?')) return;
