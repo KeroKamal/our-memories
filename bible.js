@@ -692,6 +692,20 @@
     Object.keys(docs).forEach(function (key) {
       var d = docs[key], nn = {}, pk = prev && prev[key] || {};
       var where = refEn(d.book, d.chapter, d.verse);
+      // Track verse saves alongside notes. Do not announce old saves when upgrading.
+      var saved = Object.assign({}, d.fav || {});
+      if (prev && Object.prototype.hasOwnProperty.call(pk, '_saved')) {
+        var beforeSaved = pk._saved || {};
+        Object.keys(saved).forEach(function (u) {
+          if (u !== m && saved[u] && !beforeSaved[u])
+            ev(u, '⭐', nm(u) + ' saved a verse: ' + where, '', key, null);
+        });
+        Object.keys(beforeSaved).forEach(function (u) {
+          if (u !== m && beforeSaved[u] && !saved[u])
+            ev(u, '☆', nm(u) + ' removed a saved verse: ' + where, '', key, null);
+        });
+      }
+      nn._saved = saved;
       (d.notes || []).forEach(function (n) {
         var rp = {};
         (n.replies || []).forEach(function (r) { rp[r.id] = { by: r.by, r: Object.assign({}, r.reactions || {}) }; });
