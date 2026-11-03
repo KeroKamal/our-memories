@@ -708,6 +708,21 @@ html[data-color="berry"] {
     .heart-btn:active { transform: scale(1.3); }
     .heart-btn.liked { background: rgba(255,255,255,.95); }
 
+    /* Match the soft pink Love / React bubbles from Memories in light mode.
+       Keep the More (...) buttons and all dark-mode styling unchanged. */
+    html:not(.dark) .heart-btn[aria-label="Heart this note"],
+    html:not(.dark) .heart-btn[aria-label="Love note"],
+    html:not(.dark) .heart-btn[aria-label="React with an emoji"] {
+      min-width: 36px; min-height: 36px;
+      background: var(--c50);
+      color: var(--c600);
+    }
+    html:not(.dark) .heart-btn.liked[aria-label="Heart this note"],
+    html:not(.dark) .heart-btn.liked[aria-label="Love note"] {
+      background: var(--c100);
+    }
+
+
     @media (prefers-reduced-motion: reduce) {
       .journal-hearts { display: none; }
       .note-pop { animation: none; }
