@@ -225,6 +225,10 @@
     '.bb-input { width: 100%; border: 1px solid var(--c200); border-radius: 14px; padding: 10px 12px; font-size: 14px; background: #fff; color: #334155; resize: none; }',
     '.bb-flash { animation: bbfl 2.2s ease; }',
     '@keyframes bbfl { 0%,60% { box-shadow: 0 0 0 3px var(--c400); } 100% { box-shadow: 0 0 0 0 transparent; } }',
+    /* Bible headings: match the Our Bible title (#fb7185) in dark mode only. */
+    'html.dark #screen-bible .bb-chapter-h { color: #fb7185; }',
+    /* Verse numbers: use the same soft pink, only inside Bible dark mode. */
+    'html.dark #screen-bible .bv .vn { color: #fb7185; }',
     /* dark mode */
     'html.dark .bb-votd { background: linear-gradient(135deg, var(--x3) 0%, var(--x4) 45%, var(--acc2d) 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }',
     'html.dark .bb-card, html.dark #bible-panel, html.dark .bb-saved, html.dark .bb-reply { background: var(--x9); border-color: var(--x11); }',
