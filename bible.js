@@ -229,6 +229,8 @@
     'html.dark #screen-bible .bb-chapter-h { color: #fb7185; }',
     /* Verse numbers: use the same soft pink, only inside Bible dark mode. */
     'html.dark #screen-bible .bv .vn { color: #fb7185; }',
+    /* Ours: saved-verse references use the same soft pink in Bible dark mode. */
+    'html.dark #screen-bible .bb-saved .rf { color: #fb7185; }',
     /* dark mode */
     'html.dark .bb-votd { background: linear-gradient(135deg, var(--x3) 0%, var(--x4) 45%, var(--acc2d) 100%); box-shadow: 0 8px 22px rgba(0,0,0,.4); }',
     'html.dark .bb-card, html.dark #bible-panel, html.dark .bb-saved, html.dark .bb-reply { background: var(--x9); border-color: var(--x11); }',
