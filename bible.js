@@ -161,6 +161,8 @@
     '.bb-note + .bb-note { margin-top: 10px; }',
     '.bb-note .who { font-size: 12px; font-weight: 800; color: var(--c600); display: flex; justify-content: space-between; gap: 8px; }',
     '.bb-note .who span.t { font-weight: 500; color: #94a3b8; font-size: 10.5px; }',
+    '.bb-user-text { unicode-bidi: plaintext; text-align: start; }',
+    '.bb-user-text:dir(rtl) { text-align: right; font-family: "Noto Naskh Arabic", "Geeza Pro", serif; letter-spacing: normal; word-spacing: normal; }',
     '.bb-note .tx { font-size: 14px; line-height: 1.55; color: #334155; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }',
     '.bb-reply { margin: 8px 0 0 14px; padding: 8px 10px; background: #fff; border-radius: 12px; border-inline-start: 3px solid var(--c300); }',
     '.bb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }',
@@ -355,13 +357,13 @@
         return '<button type="button" class="bb-react-pick' + ((n.reactions || {})[me()] === e ? ' sel' : '') + '" data-sheet="choose" data-e="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
       }).join('') + '</div><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
     } else if (a.type === 'replies') {
-      h += '<h3 class="bb-sheet-title">Replies 💬</h3><div class="bb-sheet-quote">“' + esc(clip(n.text, 90)) + '”</div>';
+      h += '<h3 class="bb-sheet-title">Replies 💬</h3><div class="bb-sheet-quote bb-user-text" dir="auto">“' + esc(clip(n.text, 90)) + '”</div>';
       var replies = (n.replies || []).slice().sort(function(x,y) {return Number(x.at || x.id)-Number(y.at || y.id);});
       if (!replies.length) h += '<p class="bb-sheet-quote">No replies yet. Be the first 💕</p>';
       replies.forEach(function(r) {
         var mineR = r.by === me();
         h += '<div class="bb-sheet-reply' + (mineR ? ' mine' : '') + '"><div class="who"><span>' + emo(r.by) + ' ' + esc(nm(r.by)) + ' <span style="font-weight:400;color:#94a3b8">· ' + ago(r.at || r.id) + '</span></span>' +
-          (mineR ? '<button type="button" data-sheet="delreply" data-rid="' + esc(r.id) + '" aria-label="Delete reply">🗑️</button>' : '') + '</div><p class="tx">' + esc(r.text) + '</p>' +
+          (mineR ? '<button type="button" data-sheet="delreply" data-rid="' + esc(r.id) + '" aria-label="Delete reply">🗑️</button>' : '') + '</div><p class="tx bb-user-text" dir="auto">' + esc(r.text) + '</p>' +
           '<div class="bb-sheet-reply-tools">';
         var react = r.reactions || {}, counts = {};
         Object.keys(react).forEach(function(u) { if(react[u]) counts[react[u]] = (counts[react[u]] || 0)+1; });
@@ -374,12 +376,12 @@
         }).join('') + '</div>';
         h += '</div>';
       });
-      h += '<textarea class="bb-sheet-input" rows="2" maxlength="500" data-bb-draft placeholder="Write a reply…"></textarea>' +
+      h += '<textarea class="bb-sheet-input" dir="auto" rows="2" maxlength="500" data-bb-draft placeholder="Write a reply…"></textarea>' +
         '<button type="button" class="bb-sheet-btn primary" data-sheet="sendreply">Send reply 💕</button>' +
         '<button type="button" class="bb-sheet-btn" data-sheet="close">Close</button>';
     } else if (a.type === 'edit' && mine) {
       if (fresh) a.draft = n.text;
-      h += '<h3 class="bb-sheet-title">Edit note ✏️</h3><textarea class="bb-sheet-input" rows="4" maxlength="5000" data-bb-draft></textarea>' +
+      h += '<h3 class="bb-sheet-title">Edit note ✏️</h3><textarea class="bb-sheet-input" dir="auto" rows="4" maxlength="5000" data-bb-draft></textarea>' +
         '<button type="button" class="bb-sheet-btn primary" data-sheet="saveedit">Save 💕</button><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
     } else if (a.type === 'delete' && mine) {
       h += '<h3 class="bb-sheet-title">Delete note? 🗑️</h3><button type="button" class="bb-sheet-btn primary" data-sheet="confirmdelete">Yes, delete it</button>' +
@@ -766,7 +768,7 @@
         '<div class="rf">' + esc(refEn(d.book, d.chapter, d.verse)) + ' · ' + esc(refAr(d.book, d.chapter, d.verse)) + ' <span style="float:right">' + marksHtml(d) + '</span></div>' +
         (d.en ? '<div style="font-size:14px;line-height:1.55;margin-top:5px">' + esc(clip(d.en, 220)) + '</div>' : '') +
         (d.ar ? '<div class="bb-ar" style="font-size:16px;margin-top:4px">' + esc(clip(d.ar, 220)) + '</div>' : '') +
-        (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': ' + esc(clip(last.text, 90)) + '</div>' + noteActions(last, true) + '</div>' : '') +
+        (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': <span class="bb-user-text" dir="auto" style="display:block">' + esc(clip(last.text, 90)) + '</span></div>' + noteActions(last, true) + '</div>' : '') +
         '</div>';
     }).join('');
     body.innerHTML = h + '</div>';
@@ -941,10 +943,10 @@
     if (!notes.length) h += '<div class="bb-empty" style="padding:10px">No notes yet. Write the first one 💕</div>';
     notes.slice().sort(function (a, b) { return Number(!!b.pinned) - Number(!!a.pinned); }).forEach(function (n) {
       h += '<div class="bb-note" id="bn-' + esc(n.id) + '"><div class="who"><span>' + (n.pinned ? '📌 ' : '') + emo(n.by) + ' ' + esc(nm(n.by)) + '</span><span class="t">' + ago(n.at) + '</span></div>' +
-           '<div class="tx">' + esc(n.text) + '</div>';
+           '<div class="tx bb-user-text" dir="auto">' + esc(n.text) + '</div>';
       (n.replies || []).forEach(function (r) {
         h += '<div class="bb-reply" id="br-' + esc(r.id) + '"><div class="who"><span>' + emo(r.by) + ' ' + esc(nm(r.by)) + '</span><span class="t">' + ago(r.at) + '</span></div>' +
-             '<div class="tx">' + esc(r.text) + '</div>' + reactRow(r, n.id, r.id) +
+             '<div class="tx bb-user-text" dir="auto">' + esc(r.text) + '</div>' + reactRow(r, n.id, r.id) +
              (m && r.by === m ? '<button class="bb-mini del" data-act="delreply" data-nid="' + esc(n.id) + '" data-rid="' + esc(r.id) + '">Delete</button>' : '') + '</div>';
       });
       h += noteActions(n, false) + '</div>';
@@ -952,7 +954,7 @@
     var rt = o.replyTo && findNote(d, o.replyTo);
     h += '<div style="margin-top:14px">' +
          (rt ? '<div style="font-size:11.5px;color:var(--c600);font-weight:700;margin-bottom:4px">↩ Replying to ' + esc(nm(rt.by)) + ' <button class="bb-mini del" data-act="cancelreply">cancel</button></div>' : '') +
-         '<textarea id="bb-note-in" class="bb-input" rows="2" placeholder="' + (rt ? 'Write a reply…' : 'Write a note on this verse…') + '"></textarea>' +
+         '<textarea id="bb-note-in" dir="auto" class="bb-input" rows="2" placeholder="' + (rt ? 'Write a reply…' : 'Write a note on this verse…') + '"></textarea>' +
          '<button class="bb-btn solid" style="width:100%;margin-top:8px;padding:11px" data-act="send">Send 💌</button></div>';
     panel.innerHTML = h;
     panel.scrollTop = keepScroll;
