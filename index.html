@@ -17,37 +17,16 @@
   <link rel="apple-touch-icon" href="https://img.icons8.com/emoji/192/heart-suit.png">
 
   <!-- Tailwind CSS & FontAwesome -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            rose: {
-              50: 'rgb(var(--c50-rgb) / <alpha-value>)',
-              100: 'rgb(var(--c100-rgb) / <alpha-value>)',
-              200: 'rgb(var(--c200-rgb) / <alpha-value>)',
-              300: 'rgb(var(--c300-rgb) / <alpha-value>)',
-              400: 'rgb(var(--c400-rgb) / <alpha-value>)',
-              500: 'rgb(var(--c500-rgb) / <alpha-value>)',
-              600: 'rgb(var(--c600-rgb) / <alpha-value>)',
-              700: 'rgb(var(--c700-rgb) / <alpha-value>)',
-            }
-          },
-          fontFamily: {
-            cursive: ['"Dancing Script"', 'cursive'],
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
   <meta name="theme-color" content="#ffffff">
   <!-- Apply the saved (or system) theme before the page paints, so there is no white flash at night -->
   <script>
@@ -1030,6 +1009,8 @@ html[data-color="berry"] {
     }
 
   </style>
+  <!-- Built Tailwind CSS (replaces the slow CDN script). Kept last so it layers exactly like before. -->
+  <link rel="stylesheet" href="tailwind.css">
 </head>
 <body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
 
@@ -1402,6 +1383,8 @@ html[data-color="berry"] {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    // Keep a copy of the data on the phone: the app opens instantly and still works with no signal.
+    try { db.enablePersistence({ synchronizeTabs: true }).catch(function (e) { console.warn('offline cache off:', e && e.code); }); } catch (e) {}
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylOiP_Pnprl_PoDC4_KGDYJgeFnwMuEeXbhsK7oY7FLEVPyYorlHEqAB7bky0AZhsZ/exec';
 
@@ -4752,5 +4735,7 @@ html[data-color="berry"] {
   <!-- =================== end Phone push notifications (added) =================== -->
   <!-- Bible screen (separate file) -->
   <script src="bible.js"></script>
+  <link rel="stylesheet" href="effects.css">
+  <script src="effects.js" defer></script>
 </body>
 </html>

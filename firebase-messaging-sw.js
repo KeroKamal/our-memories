@@ -15,8 +15,72 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const ICON = 'https://img.icons8.com/emoji/192/heart-suit.png';
 
-self.addEventListener('install', function () { self.skipWaiting(); });
-self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
+// ---- Speed + offline: remember the app's files on the phone ----------------
+// Bump this number when you want every phone to drop its old copy.
+const CACHE = 'kt-app-v1';
+const SHELL = ['./', 'index.html', 'tailwind.css', 'effects.css', 'effects.js', 'bible.js'];
+
+self.addEventListener('install', function (e) {
+  self.skipWaiting();
+  // best effort: a missing file must never block the install
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return Promise.all(SHELL.map(function (u) { return c.add(u).catch(function () {}); }));
+  }));
+});
+self.addEventListener('activate', function (e) {
+  e.waitUntil(
+    caches.keys()
+      .then(function (keys) { return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); })); })
+      .then(function () { return self.clients.claim(); })
+  );
+});
+
+function putCopy(req, res) {
+  if (res && (res.ok || res.type === 'opaque')) {
+    const copy = res.clone();
+    caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+  }
+  return res;
+}
+
+self.addEventListener('fetch', function (event) {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  // The page itself: always try the network first so updates arrive, fall back to the saved copy.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).then(function (res) { return putCopy(new Request('index.html'), res); })
+        .catch(function () { return caches.match('index.html').then(function (m) { return m || caches.match('./'); }); })
+    );
+    return;
+  }
+
+  // Our own files: show the saved copy instantly, refresh it in the background.
+  if (sameOrigin) {
+    if (url.pathname.endsWith('firebase-messaging-sw.js')) return;
+    event.respondWith(
+      caches.match(req).then(function (hit) {
+        const net = fetch(req).then(function (res) { return putCopy(req, res); }).catch(function () { return hit; });
+        return hit || net;
+      })
+    );
+    return;
+  }
+
+  // Fonts, icons, Firebase SDK and Bible chapters never change: saved copy first.
+  if (/(^|\.)(fonts\.googleapis\.com|fonts\.gstatic\.com|cdnjs\.cloudflare\.com|api\.getbible\.net)$/.test(url.hostname) ||
+      (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') === 0)) {
+    event.respondWith(
+      caches.match(req).then(function (hit) {
+        return hit || fetch(req).then(function (res) { return putCopy(req, res); });
+      })
+    );
+  }
+  // Everything else (Firestore, photo upload script) goes straight to the network.
+});
 
 // A push arrived while the app is closed / in the background
 messaging.onBackgroundMessage(function (payload) {

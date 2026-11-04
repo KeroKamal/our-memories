@@ -1,0 +1,78 @@
+/* =====================================================================
+   Kero & Tota — little animations (loaded after the main styles)
+   Everything here switches off for people who asked their phone for
+   "reduce motion", so it is always safe.
+   ===================================================================== */
+
+/* ---------- Floating hearts behind the app ---------- */
+#fx-bg {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: -1; opacity: 1;
+}
+
+/* ---------- Tap sparkles / heart bursts ---------- */
+.fx-p {
+  position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none;
+  line-height: 1; will-change: transform, opacity;
+  animation: fxFly var(--dur, .9s) cubic-bezier(.15,.7,.3,1) forwards;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.18));
+}
+@keyframes fxFly {
+  0%   { transform: translate(var(--x), var(--y)) translate(0, 0) scale(.2) rotate(0deg); opacity: 0; }
+  15%  { opacity: 1; transform: translate(var(--x), var(--y)) translate(calc(var(--dx) * .25), calc(var(--dy) * .25)) scale(1) rotate(calc(var(--rot) * .3)); }
+  100% { transform: translate(var(--x), var(--y)) translate(var(--dx), var(--dy)) scale(.6) rotate(var(--rot)); opacity: 0; }
+}
+
+/* ---------- Cards rise in one after another when you open a screen ---------- */
+/* uses the separate "translate"/"scale" properties so the cards' own tilt is never touched */
+.fx-stagger .polaroid,
+.fx-stagger .paper,
+.fx-stagger .todo-row,
+.fx-stagger .date-card {
+  animation: fxRise .55s cubic-bezier(.2,.8,.25,1) backwards;
+}
+.fx-stagger .polaroid:nth-child(1), .fx-stagger .paper:nth-child(1), .fx-stagger .todo-row:nth-child(1) { animation-delay: .02s; }
+.fx-stagger .polaroid:nth-child(2), .fx-stagger .paper:nth-child(2), .fx-stagger .todo-row:nth-child(2) { animation-delay: .09s; }
+.fx-stagger .polaroid:nth-child(3), .fx-stagger .paper:nth-child(3), .fx-stagger .todo-row:nth-child(3) { animation-delay: .16s; }
+.fx-stagger .polaroid:nth-child(4), .fx-stagger .paper:nth-child(4), .fx-stagger .todo-row:nth-child(4) { animation-delay: .23s; }
+.fx-stagger .polaroid:nth-child(5), .fx-stagger .paper:nth-child(5), .fx-stagger .todo-row:nth-child(5) { animation-delay: .30s; }
+.fx-stagger .polaroid:nth-child(n+6), .fx-stagger .paper:nth-child(n+6), .fx-stagger .todo-row:nth-child(n+6) { animation-delay: .36s; }
+@keyframes fxRise {
+  from { opacity: 0; translate: 0 22px; scale: .96; }
+  to   { opacity: 1; translate: 0 0;    scale: 1; }
+}
+
+/* ---------- "Together" card: beating heart, shimmering bar, live clock ---------- */
+.together-card::before { animation: fxBeat 2.4s ease-in-out infinite; transform-origin: 50% 60%; }
+@keyframes fxBeat {
+  0%, 100% { transform: rotate(14deg) scale(1); }
+  12%      { transform: rotate(14deg) scale(1.14); }
+  24%      { transform: rotate(14deg) scale(1); }
+  36%      { transform: rotate(14deg) scale(1.1); }
+  48%      { transform: rotate(14deg) scale(1); }
+}
+.together-bar > div { position: relative; overflow: hidden; }
+.together-bar > div::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,.75) 50%, transparent 100%);
+  transform: translateX(-100%); animation: fxShimmer 3.2s ease-in-out infinite;
+}
+@keyframes fxShimmer { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
+
+#together-live {
+  font-size: 12px; font-weight: 700; margin-top: 6px; opacity: .95;
+  font-variant-numeric: tabular-nums; letter-spacing: .01em;
+}
+#together-live .fx-pulse { display: inline-block; animation: fxPulse 1s ease-in-out infinite; }
+@keyframes fxPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+
+/* ---------- Tiny extras ---------- */
+.heart-btn { transition: transform .15s ease; }
+.photo-card.polaroid { transition: transform .25s ease, box-shadow .25s ease; }
+@media (hover: hover) { .photo-card.polaroid:hover { translate: 0 -4px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #fx-bg, .fx-p { display: none !important; }
+  .fx-stagger .polaroid, .fx-stagger .paper, .fx-stagger .todo-row, .fx-stagger .date-card { animation: none; }
+  .together-card::before, .together-bar > div::after, #together-live .fx-pulse { animation: none; }
+}
