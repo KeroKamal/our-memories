@@ -3,7 +3,6 @@
    1. Soft hearts drifting up behind the app
    2. Tap anywhere = a few little hearts; tap a heart button = a bigger burst
    3. Cards rise in when you open a screen
-   4. A live "we have been together for ..." clock on the together card
    5. Registers the service worker for everyone so the app opens fast / offline
    Nothing here touches your data. If anything fails, the app keeps working.
    ===================================================================== */
@@ -17,8 +16,13 @@
     try { if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function () {}); } catch (e) {}
     try { if (window.caches) caches.open('kt-badge').then(function (c) { return c.delete('count'); }).catch(function () {}); } catch (e) {}
   }
-  clearBadge();
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) clearBadge(); });
+  // Clear when the app opens, comes back to the front, or gets focus. A few retries cover the moment right
+  // after tapping a notification, when the phone may still be setting the number.
+  function clearBadgeSoon() { clearBadge(); setTimeout(clearBadge, 800); setTimeout(clearBadge, 2500); }
+  clearBadgeSoon();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) clearBadgeSoon(); });
+  window.addEventListener('pageshow', clearBadgeSoon);
+  window.addEventListener('focus', clearBadge);
 
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -31,7 +35,7 @@
     }
   } catch (e) {}
 
-  if (reduce) { liveClock(); return; }   // no motion for people who turned it off
+  if (reduce) return;   // no motion for people who turned it off
 
   // ---------- 1. drifting hearts ----------
   var canvas, ctx, W = 0, H = 0, dpr = 1, hearts = [], raf = 0, last = 0, rgb = '244 63 94', rgbAt = 0;
@@ -109,6 +113,8 @@
     canvas = document.createElement('canvas');
     canvas.id = 'fx-bg';
     canvas.setAttribute('aria-hidden', 'true');
+    // Pinned with inline styles on purpose: even if effects.css is missing or late, the canvas can never push the app down.
+    canvas.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:-1;';
     ctx = canvas.getContext('2d');
     if (!ctx) return;
     document.body.insertBefore(canvas, document.body.firstChild);
@@ -124,7 +130,19 @@
   var EMOJI = ['💗', '💕', '💖', '❤️', '💘', '✨'];
   var live = 0;
 
+  var cssChecked = false, cssGood = false;
+  function cssOk() {   // the tap hearts need effects.css; without it they would just sit at the bottom of the page
+    if (cssGood) return true;
+    var p = document.createElement('span');
+    p.className = 'fx-p'; p.style.visibility = 'hidden'; p.style.animation = 'none';
+    document.body.appendChild(p);
+    cssGood = getComputedStyle(p).position === 'fixed';
+    p.remove();
+    return cssGood;
+  }
+
   function burst(x, y, n, spread) {
+    if (!cssOk()) return;
     for (var i = 0; i < n; i++) {
       if (live > 45) return;
       var el = document.createElement('span');
@@ -180,34 +198,10 @@
     }
   }
 
-  // ---------- 4. live "together" clock ----------
-  function liveClock() {
-    var sub = document.getElementById('together-sub');
-    if (!sub || typeof TOGETHER_START === 'undefined') return;
-    var live = document.getElementById('together-live');
-    if (!live) {
-      live = document.createElement('p');
-      live.id = 'together-live';
-      sub.insertAdjacentElement('afterend', live);
-    }
-    var start = new Date(TOGETHER_START.y, TOGETHER_START.m, TOGETHER_START.d).getTime();
-    function two(n) { return n < 10 ? '0' + n : '' + n; }
-    function tick() {
-      if (document.hidden || !live.offsetParent) return;   // not on screen: do nothing
-      var s = Math.floor((Date.now() - start) / 1000);
-      if (s < 0) { live.textContent = ''; return; }
-      var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
-      live.innerHTML = '<span class="fx-pulse">💓</span> ' + d + 'd ' + two(h) + 'h ' + two(m) + 'm ' + two(sec) + 's of loving you';
-    }
-    tick();
-    setInterval(tick, 1000);
-  }
-
   function boot() {
     try { initBackground(); } catch (e) { console.warn('fx background', e); }
     try { initTaps(); } catch (e) { console.warn('fx taps', e); }
     try { initStagger(); } catch (e) { console.warn('fx stagger', e); }
-    try { liveClock(); } catch (e) { console.warn('fx clock', e); }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
