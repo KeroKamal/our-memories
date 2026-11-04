@@ -558,7 +558,7 @@
       if (!en && !ar) return errBox('Could not load the verse. Check your internet connection.', renderToday);
       body.innerHTML =
         '<div class="bb-votd">' +
-          '<div class="lbl">🌅 Verse of the day · for both of us</div>' +
+          '<div class="lbl">🌅 Verse of the day</div>' +
           (en ? '<div class="en">“' + esc(en) + '”</div>' : '') +
           (ar ? '<div class="ar bb-ar">' + esc(ar) + '</div>' : '') +
           '<div class="ref">' + esc(refEn(b, c, v)) + ' · ' + esc(refAr(b, c, v)) + '</div>' +
