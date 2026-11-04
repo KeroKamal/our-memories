@@ -12,14 +12,6 @@
   if (window.__fxLoaded) return;
   window.__fxLoaded = true;
 
-  // ---------- clear the red number on the app icon when the app is opened ----------
-  function clearBadge() {
-    try { if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function () {}); } catch (e) {}
-    try { if (window.caches) caches.open('kt-badge').then(function (c) { return c.delete('count'); }).catch(function () {}); } catch (e) {}
-  }
-  clearBadge();
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) clearBadge(); });
-
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- 5. service worker (instant opens + offline) ----------
@@ -109,8 +101,6 @@
     canvas = document.createElement('canvas');
     canvas.id = 'fx-bg';
     canvas.setAttribute('aria-hidden', 'true');
-    // Pinned with inline styles on purpose: even if effects.css is missing or late, the canvas can never push the app down.
-    canvas.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:-1;';
     ctx = canvas.getContext('2d');
     if (!ctx) return;
     document.body.insertBefore(canvas, document.body.firstChild);
@@ -126,19 +116,7 @@
   var EMOJI = ['💗', '💕', '💖', '❤️', '💘', '✨'];
   var live = 0;
 
-  var cssChecked = false, cssGood = false;
-  function cssOk() {   // the tap hearts need effects.css; without it they would just sit at the bottom of the page
-    if (cssGood) return true;
-    var p = document.createElement('span');
-    p.className = 'fx-p'; p.style.visibility = 'hidden'; p.style.animation = 'none';
-    document.body.appendChild(p);
-    cssGood = getComputedStyle(p).position === 'fixed';
-    p.remove();
-    return cssGood;
-  }
-
   function burst(x, y, n, spread) {
-    if (!cssOk()) return;
     for (var i = 0; i < n; i++) {
       if (live > 45) return;
       var el = document.createElement('span');
