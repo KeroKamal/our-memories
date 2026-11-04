@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -840,6 +840,7 @@ html[data-color="berry"] {
     }
     .paper-greet { display: block; font-family: "Dancing Script", cursive; font-weight: 700; font-size: 23px; line-height: 28px; }
     .paper-text { font-size: 15px; font-weight: 500; line-height: 28px; color: #3b3340; word-spacing: 2.5px; }
+    /* Keep Arabic journal notes right-to-left while leaving English notes unchanged. */
     .paper-sign { text-align: right; font-family: "Dancing Script", cursive; font-weight: 700; font-size: 23px; line-height: 28px; }
     .paper-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--x2); }
     .paper-compose { padding: 20px 16px 16px; }
@@ -1008,6 +1009,14 @@ html[data-color="berry"] {
       font-feature-settings: "liga" 0, "clig" 0;
     }
 
+    /* Arabic in user-written content (all tabs): keep English left-to-right. */
+    .user-text-auto { unicode-bidi: plaintext; text-align: start; }
+    .user-text-auto:dir(rtl) {
+      text-align: right;
+      font-family: "Noto Sans Arabic", "Geeza Pro", Tahoma, sans-serif;
+      letter-spacing: normal;
+      word-spacing: normal;
+    }
   </style>
   <!-- Built Tailwind CSS (replaces the slow CDN script). Kept last so it layers exactly like before. -->
   <link rel="stylesheet" href="tailwind.css">
@@ -1081,7 +1090,7 @@ html[data-color="berry"] {
         <div>
           <label id="photo-notes-label" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Notes</label>
           <!-- font-size 16px prevents iOS from auto-zooming the page when focusing the field -->
-          <textarea id="photo-caption" rows="2" placeholder="Write a sweet note..."
+          <textarea id="photo-caption" dir="auto" rows="2" placeholder="Write a sweet note..."
                     style="font-size:16px"
                     class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80"></textarea>
         </div>
@@ -1158,7 +1167,7 @@ html[data-color="berry"] {
           </div>
         </div>
 
-        <textarea id="journal-text" rows="4" placeholder="Write thoughts or notes to each other..." class="paper-input"></textarea>
+        <textarea id="journal-text" dir="auto" rows="4" placeholder="Write thoughts or notes to each other..." class="paper-input"></textarea>
 
         <div id="voice-ui-journal" class="voice-row"></div>
 
@@ -1204,7 +1213,7 @@ html[data-color="berry"] {
         </div>
 
         <div class="flex gap-2">
-          <input id="bucket-text" type="text" maxlength="140" placeholder="A new idea…" style="font-size:16px"
+          <input id="bucket-text" dir="auto" type="text" maxlength="140" placeholder="A new idea…" style="font-size:16px"
                  onkeydown="if (event.key === 'Enter') addBucketItem()"
                  class="flex-1 min-w-0 p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-white/80">
           <button type="button" onclick="addBucketItem()" aria-label="Add to the list"
@@ -1326,7 +1335,7 @@ html[data-color="berry"] {
         <p class="text-[10px] text-rose-300 uppercase tracking-widest font-bold">Memory Note</p>
         <span id="modal-author"></span>
       </div>
-      <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1"></p>
+      <p id="modal-caption" class="text-sm leading-relaxed font-medium safe-text px-1 user-text-auto" dir="auto"></p>
       <div id="modal-voice" class="px-1"></div>
       <div id="modal-reactions" class="flex flex-wrap gap-1.5 pt-1"></div>
     </div>
@@ -2463,7 +2472,7 @@ html[data-color="berry"] {
               <span class="text-[11px] font-bold text-rose-500">${escapeHtml(personEmoji(r.by))} ${escapeHtml(displayName(r.by))} <span class="font-medium text-slate-400">· ${escapeHtml(replyTimeText(r.at || r.id))}</span></span>
               ${mine ? `<button type="button" class="text-slate-400 text-xs px-1" onclick="deleteReply(${Number(r.id)})" aria-label="Delete reply"><i class="fas fa-trash-can"></i></button>` : ''}
             </div>
-            <p class="text-sm font-medium text-slate-700 safe-text">${escapeHtml(r.text)}</p>
+            <p class="text-sm font-medium text-slate-700 safe-text user-text-auto" dir="auto">${escapeHtml(r.text)}</p>
             <div class="flex items-center flex-wrap gap-1.5 mt-1.5">
               ${replyChipsHtml(r)}
               <button type="button" class="react-chip" onclick="toggleReplyPicker(${Number(r.id)})" aria-label="React to this reply"><i class="far fa-face-smile"></i></button>
@@ -2474,9 +2483,9 @@ html[data-color="berry"] {
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-2">Replies 💬</p>
-        <p class="text-xs text-slate-400 safe-text caption-clamp-1 text-center mb-3">“${escapeHtml(original)}”</p>
+        <p class="text-xs text-slate-400 safe-text caption-clamp-1 mb-3 user-text-auto" dir="auto">“${escapeHtml(original)}”</p>
         <div id="reply-thread">${thread}</div>
-        <textarea id="reply-text" rows="2" maxlength="500" style="font-size:16px" placeholder="Write a reply…"
+        <textarea id="reply-text" dir="auto" rows="2" maxlength="500" style="font-size:16px" placeholder="Write a reply…"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3 mt-1"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="sendReply()">Send reply 💕</button>
         <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Close</button>
@@ -2564,7 +2573,7 @@ html[data-color="berry"] {
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Edit note ✏️</p>
-        <textarea id="edit-note-text" rows="4" style="font-size:16px"
+        <textarea id="edit-note-text" dir="auto" rows="4" style="font-size:16px"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveNoteEdit()">Save 💕</button>
         <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
@@ -2627,7 +2636,7 @@ html[data-color="berry"] {
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-3">Edit note ✏️</p>
-        <textarea id="edit-caption" rows="4" style="font-size:16px"
+        <textarea id="edit-caption" dir="auto" rows="4" style="font-size:16px"
                   class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3"></textarea>
         <button class="sheet-btn bg-rose-500 text-white mb-2" onclick="saveCaption()">Save 💕</button>
         <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
@@ -2705,7 +2714,7 @@ html[data-color="berry"] {
             </span>
           </div>
           <div class="pt-3 px-1 space-y-2" style="min-width:0">
-            <p class="font-sans text-sm font-medium leading-snug text-slate-700 safe-text caption-clamp">${escapeHtml(p.caption)}</p>
+            <p class="font-sans text-sm font-medium leading-snug text-slate-700 safe-text caption-clamp user-text-auto" dir="auto">${escapeHtml(p.caption)}</p>
             ${voicePlayHtml('photos', p)}
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2 flex-wrap" style="min-width:0">
@@ -2743,7 +2752,7 @@ html[data-color="berry"] {
               <span style="font-size:13px">${liked ? '❤️' : '🤍'}</span>${hearts > 0 ? `<span>${hearts}</span>` : ''}
             </button>
           </div>
-          <p class="font-sans text-xs font-medium leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1">${escapeHtml(p.caption)}</p>
+          <p class="font-sans text-xs font-medium leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1 user-text-auto" dir="auto">${escapeHtml(p.caption)}</p>
           <p class="text-[10px] text-slate-400 px-0.5 mt-0.5">${escapeHtml(formatPhotoDate(p))}</p>
         </div>
       `;
@@ -2824,7 +2833,7 @@ html[data-color="berry"] {
             </div>
             <div class="paper-body">
               <span class="paper-greet ink-${kind}">${greet}</span>
-              ${j.text ? `<div class="paper-text safe-text">${escapeHtml(j.text)}</div>` : ''}
+              ${j.text ? `<div class="paper-text safe-text user-text-auto" dir="auto">${escapeHtml(j.text)}</div>` : ''}
               ${j.voice ? `<div style="height:28px; display:flex; align-items:center">${voicePlayHtml('journal', j)}</div>` : ''}
               <div class="paper-sign ink-${kind}">— ${icon} ${escapeHtml(displayName(j.author))}</div>
             </div>
@@ -3318,7 +3327,7 @@ html[data-color="berry"] {
               </button>`).join('')}
             ${g.no.map((j, i) => `
               <button type="button" class="otd-note" style="--tilt:${i % 2 ? -1.5 : 1.5}deg" onclick="goToNote(${Number(j.id)})" aria-label="Open note">
-                <p class="text-[12px] leading-snug font-medium safe-text caption-clamp">${escapeHtml(j.text)}</p>
+                <p class="text-[12px] leading-snug font-medium safe-text caption-clamp user-text-auto" dir="auto">${escapeHtml(j.text)}</p>
                 <p class="font-cursive text-base mt-1 ink-${authorKind(j.author)}">— ${escapeHtml(displayName(j.author))}</p>
               </button>`).join('')}
           </div>
@@ -3632,7 +3641,7 @@ html[data-color="berry"] {
         <div class="todo-row ${it.done ? 'done' : ''}" onclick="toggleBucket(${Number(it.id)})">
           <span class="todo-check ${it.done ? 'on' : ''}">${it.done ? '<i class="fas fa-check"></i>' : ''}</span>
           <div class="flex-1" style="min-width:0">
-            <p class="todo-text text-sm font-semibold text-slate-700 safe-text">${escapeHtml(it.text)}</p>
+            <p class="todo-text text-sm font-semibold text-slate-700 safe-text user-text-auto" dir="auto">${escapeHtml(it.text)}</p>
             <p class="text-[10px] text-slate-400 mt-0.5">${meta}</p>
             ${(it.replies || []).length ? `<div class="mt-1.5">${replyChipHtml('bucket', it)}</div>` : ''}
           </div>
@@ -4139,7 +4148,7 @@ html[data-color="berry"] {
       return `
         <div class="together-card date-card">
           <button type="button" class="date-more" onclick="openDateMenu(${Number(item.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
-          <p class="text-[11px] font-bold uppercase tracking-widest opacity-90 date-title">${dateIcon(item.title)} ${escapeHtml(item.title)}</p>
+          <p class="text-[11px] font-bold uppercase tracking-widest opacity-90 date-title user-text-auto" dir="auto">${dateIcon(item.title)} ${escapeHtml(item.title)}</p>
           <p class="together-big">${escapeHtml(main)}</p>
           <p class="text-[12px] font-semibold opacity-95 mt-0.5">${escapeHtml(sub)}</p>
           <div class="together-bar"><div style="width:${inf.progress}%"></div></div>
@@ -4183,7 +4192,7 @@ html[data-color="berry"] {
                oninput="formatDateInput(this)" style="font-size:16px"
                class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">What is this date?</p>
-        <input id="date-title" type="text" maxlength="40" autocomplete="off" style="font-size:16px"
+        <input id="date-title" dir="auto" type="text" maxlength="40" autocomplete="off" style="font-size:16px"
                class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
         <label class="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
           <input id="date-repeat" type="checkbox" style="width:20px;height:20px"> Repeats every year
