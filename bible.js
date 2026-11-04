@@ -496,17 +496,37 @@
   }
 
   /* ---------------- TODAY ---------------- */
-  // Pick a stable but different real Bible reference for each UTC date.
+  // Pick a stable real Bible reference using THIS phone's local calendar date.
+  // The same date gets the same verse on both phones; midnight is local to each.
   // The text itself is loaded live from the getBible API below.
+  function localBibleDateKey(off) {
+    var d = new Date();
+    d.setDate(d.getDate() + (off || 0));
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  }
   function dailyRandoms(off) {
-    var d = new Date(Date.now() + (off || 0) * 86400000);
-    var seed = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+    var seed = localBibleDateKey(off);
     function next() {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     }
     return [next(), next(), next()];
   }
+
+  // Recheck on local midnight, and when the app returns from the background.
+  var lastBibleDate = localBibleDateKey(0);
+  function checkBibleMidnight() {
+    var today = localBibleDateKey(0);
+    if (today === lastBibleDate) return;
+    lastBibleDate = today;
+    if (S.tab === 'today' && !$('screen-bible').classList.contains('hidden')) {
+      renderToday();
+    }
+  }
+  setInterval(checkBibleMidnight, 15000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) checkBibleMidnight();
+  });
   function dailyBookChapter(off) {
     var r = dailyRandoms(off);
     var b = Math.floor(r[0] * BOOKS.length) + 1;
