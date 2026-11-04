@@ -17,7 +17,7 @@ const ICON = 'https://img.icons8.com/emoji/192/heart-suit.png';
 
 // ---- Speed + offline: remember the app's files on the phone ----------------
 // Bump this number when you want every phone to drop its old copy.
-const CACHE = 'kt-app-v1';
+const CACHE = 'kt-app-v2';
 const BADGE_CACHE = 'kt-badge';   // remembers the unread number even if the phone stops this worker
 
 // Red number on the app icon (iPhone: needs the app added to the Home Screen, iOS 16.4 or newer)
@@ -29,6 +29,15 @@ async function bumpBadge() {
     await c.put('count', new Response(String(n)));
     if (self.navigator && self.navigator.setAppBadge) await self.navigator.setAppBadge(n);
   } catch (e) { /* badges are a bonus, never block the notification */ }
+}
+
+// Remove the red number (used when a notification is tapped; the page also clears it when it opens)
+async function clearBadge() {
+  try {
+    const c = await caches.open(BADGE_CACHE);
+    await c.delete('count');
+    if (self.navigator && self.navigator.clearAppBadge) await self.navigator.clearAppBadge();
+  } catch (e) { /* ignore */ }
 }
 
 const SHELL = ['./', 'index.html', 'tailwind.css', 'effects.css', 'effects.js', 'bible.js'];
@@ -111,6 +120,7 @@ messaging.onBackgroundMessage(function (payload) {
 // Tapping the notification opens (or focuses) the app
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
+  event.waitUntil(clearBadge());
   const url = (event.notification.data && event.notification.data.url) || self.registration.scope;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
