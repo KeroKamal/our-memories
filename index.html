@@ -1022,6 +1022,13 @@ html[data-color="berry"] {
     html.dark .ink-kero { color: var(--c300); }
     html.dark .ink-tota { color: #c4b5fd; }
     html.dark .ink-other { color: #fcd34d; }
+    
+    /* Fix unusual fi and fl letter combinations */
+    body {
+      font-variant-ligatures: none;
+      font-feature-settings: "liga" 0, "clig" 0;
+    }
+
   </style>
 </head>
 <body class="bg-rose-50 text-slate-800 font-sans flex flex-col antialiased selection:bg-rose-200">
