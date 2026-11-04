@@ -3259,7 +3259,10 @@ html[data-color="berry"] {
         progress = Math.min(100, Math.max(0, (daysBetween(lastAnniv, today) / span) * 100));
       }
 
-      el.textContent = main + ' 💕';
+      el.textContent = main + ' ';
+      const beat = document.createElement('span');   // the heart beside the days, animated by effects.css
+      beat.className = 'heart-beat'; beat.textContent = '💕';
+      el.appendChild(beat);
       document.getElementById('together-sub').textContent = sub;
       document.getElementById('together-anniv').textContent = anniv;
       document.getElementById('together-bar-fill').style.width = progress + '%';
