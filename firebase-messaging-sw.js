@@ -18,19 +18,6 @@ const ICON = 'https://img.icons8.com/emoji/192/heart-suit.png';
 // ---- Speed + offline: remember the app's files on the phone ----------------
 // Bump this number when you want every phone to drop its old copy.
 const CACHE = 'kt-app-v1';
-const BADGE_CACHE = 'kt-badge';   // remembers the unread number even if the phone stops this worker
-
-// Red number on the app icon (iPhone: needs the app added to the Home Screen, iOS 16.4 or newer)
-async function bumpBadge() {
-  try {
-    const c = await caches.open(BADGE_CACHE);
-    const hit = await c.match('count');
-    const n = (hit ? parseInt(await hit.text(), 10) || 0 : 0) + 1;
-    await c.put('count', new Response(String(n)));
-    if (self.navigator && self.navigator.setAppBadge) await self.navigator.setAppBadge(n);
-  } catch (e) { /* badges are a bonus, never block the notification */ }
-}
-
 const SHELL = ['./', 'index.html', 'tailwind.css', 'effects.css', 'effects.js', 'bible.js'];
 
 self.addEventListener('install', function (e) {
@@ -43,7 +30,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys()
-      .then(function (keys) { return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== BADGE_CACHE; }).map(function (k) { return caches.delete(k); })); })
+      .then(function (keys) { return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); })); })
       .then(function () { return self.clients.claim(); })
   );
 });
@@ -105,7 +92,7 @@ messaging.onBackgroundMessage(function (payload) {
     data: { url: d.url ? new URL(d.url, self.registration.scope).href : self.registration.scope }
   };
   if (d.tag) options.tag = d.tag;               // same tag = replaces the older one (no spam when 5 photos are added)
-  return Promise.all([self.registration.showNotification(d.title || 'Kero & Tota 💖', options), bumpBadge()]);
+  return self.registration.showNotification(d.title || 'Kero & Tota 💖', options);
 });
 
 // Tapping the notification opens (or focuses) the app
