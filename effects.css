@@ -59,12 +59,15 @@
 }
 @keyframes fxShimmer { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
 
-#together-live {
-  font-size: 12px; font-weight: 700; margin-top: 6px; opacity: .95;
-  font-variant-numeric: tabular-nums; letter-spacing: .01em;
+/* The 💕 beside "98 days": a real double heartbeat (thump-thump, rest) */
+.heart-beat { display: inline-block; transform-origin: 50% 55%; animation: fxHeartbeat 1.3s ease-in-out infinite; will-change: transform; }
+@keyframes fxHeartbeat {
+  0%   { transform: scale(1); }
+  14%  { transform: scale(1.28); }
+  28%  { transform: scale(1); }
+  42%  { transform: scale(1.2); }
+  70%, 100% { transform: scale(1); }
 }
-#together-live .fx-pulse { display: inline-block; animation: fxPulse 1s ease-in-out infinite; }
-@keyframes fxPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
 
 /* ---------- Tiny extras ---------- */
 .heart-btn { transition: transform .15s ease; }
@@ -74,5 +77,5 @@
 @media (prefers-reduced-motion: reduce) {
   #fx-bg, .fx-p { display: none !important; }
   .fx-stagger .polaroid, .fx-stagger .paper, .fx-stagger .todo-row, .fx-stagger .date-card { animation: none; }
-  .together-card::before, .together-bar > div::after, #together-live .fx-pulse { animation: none; }
+  .together-card::before, .together-bar > div::after, .heart-beat { animation: none; }
 }
