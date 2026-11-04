@@ -12,6 +12,14 @@
   if (window.__fxLoaded) return;
   window.__fxLoaded = true;
 
+  // ---------- clear the red number on the app icon when the app is opened ----------
+  function clearBadge() {
+    try { if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function () {}); } catch (e) {}
+    try { if (window.caches) caches.open('kt-badge').then(function (c) { return c.delete('count'); }).catch(function () {}); } catch (e) {}
+  }
+  clearBadge();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) clearBadge(); });
+
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- 5. service worker (instant opens + offline) ----------
