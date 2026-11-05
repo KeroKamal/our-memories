@@ -865,20 +865,43 @@
   }
 
   /* ---------------- OURS (saved verses) ---------------- */
+  // Freeze the initial ordering of existing verses on this device. Older Bible
+  // documents had only a mutable `updated` timestamp, so assigning `addedAt`
+  // during a later heart/reply could still shift their position. This local
+  // ordering cache is independent of all subsequent Firestore mutations.
+  var OURS_ORDER_KEY = 'bibleOursStableOrderV2';
+  var oursOrder = {};
+  try {
+    var storedOrder = JSON.parse(localStorage.getItem(OURS_ORDER_KEY) || '{}');
+    if (storedOrder && typeof storedOrder === 'object' && !Array.isArray(storedOrder)) oursOrder = storedOrder;
+  } catch (e) {}
+  function freezeOursOrder(all) {
+    var missing = all.filter(function (d) { return !Number.isFinite(Number(oursOrder[d.key])) || !oursOrder[d.key]; });
+    if (!missing.length) return;
+    // Snapshot the order the user currently sees, before any future action.
+    missing.sort(function (a, b) {
+      var ta = Number(a.addedAt || a.updated || 0), tb = Number(b.addedAt || b.updated || 0);
+      return tb - ta || String(a.key).localeCompare(String(b.key));
+    });
+    missing.forEach(function (d) {
+      oursOrder[d.key] = Number(d.addedAt || d.updated) || Date.now();
+    });
+    try { localStorage.setItem(OURS_ORDER_KEY, JSON.stringify(oursOrder)); } catch (e) {}
+  }
   function renderOurs() {
     var f = S.filter, m = me();
     var all = Object.keys(S.docs).map(function (k) { return S.docs[k]; }).filter(function (d) {
       return (d.fav && (d.fav.Kero || d.fav.Tota)) || (d.notes && d.notes.length);
     });
+    // Capture the full Ours order (not only the selected filter) once per key.
+    freezeOursOrder(all);
     var list = all.filter(function (d) {
       if (f === 'fav') return d.fav && (d.fav.Kero || d.fav.Tota);
       if (f === 'notes') return d.notes && d.notes.length;
       return true;
     }).sort(function (a, z) {
-      // Sort by when each verse first entered Ours, not its latest action.
-      // Older documents use their last known timestamp until they are next saved.
-      var aTime = a.addedAt || a.updated || 0;
-      var zTime = z.addedAt || z.updated || 0;
+      var aTime = Number(oursOrder[a.key]) || 0;
+      var zTime = Number(oursOrder[z.key]) || 0;
       return zTime - aTime || String(a.key).localeCompare(String(z.key));
     });
     var fl = [['all', 'All'], ['fav', '★ Saved'], ['notes', '💬 Notes']];
