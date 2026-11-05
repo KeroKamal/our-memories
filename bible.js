@@ -874,7 +874,13 @@
       if (f === 'fav') return d.fav && (d.fav.Kero || d.fav.Tota);
       if (f === 'notes') return d.notes && d.notes.length;
       return true;
-    }).sort(function (a, z) { return (z.updated || 0) - (a.updated || 0); });
+    }).sort(function (a, z) {
+      // Sort by when each verse first entered Ours, not its latest action.
+      // Older documents use their last known timestamp until they are next saved.
+      var aTime = a.addedAt || a.updated || 0;
+      var zTime = z.addedAt || z.updated || 0;
+      return zTime - aTime || String(a.key).localeCompare(String(z.key));
+    });
     var fl = [['all', 'All'], ['fav', '★ Saved'], ['notes', '💬 Notes']];
     var h = '<div class="bb-card"><div class="bb-seg">' + fl.map(function (x) { return '<button data-f="' + x[0] + '" class="' + (f === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       '<p style="font-size:11px;color:#94a3b8;margin:10px 2px 12px"><span style="color:' + DOT.Kero + '">●</span> ' + esc(nm('Kero')) + ' &nbsp; <span style="color:' + DOT.Tota + '">●</span> ' + esc(nm('Tota')) + '</p>';
@@ -937,6 +943,9 @@
         d.fav = d.fav || {}; d.hl = d.hl || {}; d.notes = d.notes || [];
         if (en && !d.en) d.en = en;
         if (ar && !d.ar) d.ar = ar;
+        // Keep a stable ordering timestamp. Legacy verses did not have one,
+        // so preserve the timestamp visible before this edit's first write.
+        if (!d.addedAt) d.addedAt = d.updated || Date.now();
         fn(d);
         d.updated = Date.now();
         tx.set(ref, d);
