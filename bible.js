@@ -360,7 +360,7 @@
     }
     if (a.type === 'versereact') {
       var vd = S.docs[a.key] || {}, vr = vd.verseReactions || {};
-      var vh = '<div class="bb-sheet-handle"></div><h3 class="bb-sheet-title">React to verse 💕</h3><div class="bb-react-picker">';
+      var vh = '<div class="bb-sheet-handle"></div><p class="font-cursive text-2xl text-rose-600 text-center mb-3">React 💕</p><div class="bb-react-picker">';
       ['😂','😍','🥹','😮','🔥','👏'].forEach(function (emoji) {
         vh += '<button type="button" class="bb-react-pick' + (vr[me()] === emoji ? ' sel' : '') + '" data-sheet="versechoose" data-e="' + emoji + '" aria-label="React ' + emoji + '">' + emoji + '</button>';
       });
@@ -381,7 +381,7 @@
         '<button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
     } else if (a.type === 'react') {
       var options = ['😂','😍','🥹','😮','🔥','👏'];
-      h += '<h3 class="bb-sheet-title">React 💕</h3><div class="bb-react-picker">' + options.map(function(e) {
+      h += '<p class="font-cursive text-2xl text-rose-600 text-center mb-3">React 💕</p><div class="bb-react-picker">' + options.map(function(e) {
         return '<button type="button" class="bb-react-pick' + ((n.reactions || {})[me()] === e ? ' sel' : '') + '" data-sheet="choose" data-e="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
       }).join('') + '</div><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
     } else if (a.type === 'replies') {
