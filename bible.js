@@ -184,6 +184,12 @@
     '.bb-note-actions .bb-react-badge.mine { border-color:var(--c400); background:rgb(var(--c500-rgb) / .15); }',
     'html.dark .bb-note-actions .bb-react-badge { background:rgba(255,255,255,.1); color:var(--x8); }',
     'html.dark .bb-note-actions .bb-react-badge.mine { background:rgb(var(--c400-rgb) / .25); border-color:var(--c400); }',
+    '.bb-verse-actions { margin-top:12px; padding-top:10px; border-top:1px solid var(--c100); }',
+    '.bb-verse-actions .bb-reply-trigger { background:var(--c50); }',
+    '.bb-verse-actions .bb-actions-right .heart-btn { display:inline-flex; align-items:center; justify-content:center; gap:3px; min-height:28px; padding:4px 9px; border-radius:9999px; background:var(--c50); }',
+    'html.dark .bb-verse-actions { border-top-color:var(--x7); }',
+    'html.dark .bb-verse-actions .bb-reply-trigger { background:var(--x11); color:var(--x8); }',
+    'html.dark .bb-verse-actions .bb-actions-right .heart-btn { background:var(--x11); }',
     '.bb-note-actions .heart-btn { min-height:28px; color:#64748b; font-weight:700; cursor:pointer; }',
     '.bb-note-actions .heart-btn.liked { color:var(--c600); }',
     '.bb-note-actions .bb-reply-trigger { display:inline-flex; align-items:center; gap:4px; padding:5px 9px; border-radius:9999px; font-size:11px; background:rgba(255,255,255,.7); color:#64748b; font-weight:700; }',
@@ -340,7 +346,29 @@
   }
   function renderActionSheet(fresh) {
     if (!actionSheet) return;
-    var a = actionSheet, n = sheetNote();
+    var a = actionSheet;
+    if (a.type === 'versemenu') {
+      var verseDoc = S.docs[a.key] || {};
+      var isSaved = !!(verseDoc.fav && me() && verseDoc.fav[me()]);
+      actionsPanel.innerHTML = '<div class="bb-sheet-handle"></div>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="versecomment">💬 Reply</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="versesave">' + (isSaved ? '★ Unsave verse' : '☆ Save verse') + '</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="verseread">📖 Read chapter</button>' +
+        '<button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
+      actionsPanel.scrollTop = 0;
+      return;
+    }
+    if (a.type === 'versereact') {
+      var vd = S.docs[a.key] || {}, vr = vd.verseReactions || {};
+      var vh = '<div class="bb-sheet-handle"></div><h3 class="bb-sheet-title">React to verse 💕</h3><div class="bb-react-picker">';
+      ['😂','😍','🥹','😮','🔥','👏'].forEach(function (emoji) {
+        vh += '<button type="button" class="bb-react-pick' + (vr[me()] === emoji ? ' sel' : '') + '" data-sheet="versechoose" data-e="' + emoji + '" aria-label="React ' + emoji + '">' + emoji + '</button>';
+      });
+      actionsPanel.innerHTML = vh + '</div><button type="button" class="bb-sheet-btn" data-sheet="close">Cancel</button>';
+      actionsPanel.scrollTop = 0;
+      return;
+    }
+    var n = sheetNote();
     if (!n) { closeActionSheet(); return; }
     var input = actionsPanel.querySelector('[data-bb-draft]');
     if (input) a.draft = input.value;
@@ -393,7 +421,35 @@
   }
   actionsPanel.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-sheet]'); if (!btn || !actionSheet) return;
-    var type = btn.getAttribute('data-sheet'), a = actionSheet, n = sheetNote(), m = me();
+    var type = btn.getAttribute('data-sheet'), a = actionSheet, m = me();
+    if (type === 'close') return closeActionSheet();
+    if (a.type === 'versemenu') {
+      if (type === 'versecomment') {
+        closeActionSheet();
+        openSheet(a.b, a.c, a.v, a.en, a.ar);
+        var input = $('bb-note-in'); if (input) input.focus();
+        return;
+      }
+      if (type === 'versesave') {
+        if (needUser()) return;
+        closeActionSheet();
+        return mutate(a.b,a.c,a.v,a.en,a.ar,function(doc) { doc.fav[m] = !doc.fav[m]; });
+      }
+      if (type === 'verseread') {
+        closeActionSheet();
+        S.read.b = a.b; S.read.c = a.c; S.read.stage = 'reader';
+        saveRead(); setTab('read');
+        return;
+      }
+      return;
+    }
+    if (type === 'versechoose' && a.type === 'versereact') {
+      if (needUser()) return;
+      var chosen = btn.getAttribute('data-e');
+      closeActionSheet();
+      return toggleVerseReaction(a.b, a.c, a.v, a.en, a.ar, chosen);
+    }
+    var n = sheetNote();
     if (!n) return closeActionSheet();
     // Sheet actions can be launched directly from Ours, without opening a verse.
     var o = a;
@@ -747,6 +803,67 @@
     });
   }
 
+  /* ---------------- Independent verse-level actions ---------------- */
+  function toggleVerseHeart(b, c, v, en, ar) {
+    var m = me(); if (!m) return;
+    return mutate(b, c, v, en, ar, function (d) {
+      d.verseHearts = d.verseHearts || {};
+      if (d.verseHearts[m]) delete d.verseHearts[m];
+      else d.verseHearts[m] = true;
+    });
+  }
+  function toggleVerseReaction(b, c, v, en, ar, emoji) {
+    var m = me(); if (!m || EMOJIS.indexOf(emoji) < 0) return;
+    return mutate(b, c, v, en, ar, function (d) {
+      d.verseReactions = d.verseReactions || {};
+      if (d.verseReactions[m] === emoji) delete d.verseReactions[m];
+      else d.verseReactions[m] = emoji;
+    });
+  }
+  function showVerseReactSheet(d) {
+    if (needUser()) return;
+    var restoreVerse = !!(S.open && overlay.classList.contains('open'));
+    if (restoreVerse) overlay.classList.remove('open');
+    actionSheet = {
+      type: 'versereact', key: d.key || keyOf(d.book, d.chapter, d.verse),
+      b: d.book, c: d.chapter, v: d.verse, en: d.en, ar: d.ar,
+      restoreVerse: restoreVerse
+    };
+    actionsOverlay.classList.add('open');
+    renderActionSheet(true);
+  }
+  function showVerseMenuSheet(d) {
+    var restoreVerse = !!(S.open && overlay.classList.contains('open'));
+    if (restoreVerse) overlay.classList.remove('open');
+    actionSheet = {
+      type:'versemenu', key:d.key || keyOf(d.book,d.chapter,d.verse),
+      b:d.book, c:d.chapter, v:d.verse, en:d.en, ar:d.ar,
+      restoreVerse:restoreVerse
+    };
+    actionsOverlay.classList.add('open');
+    renderActionSheet(true);
+  }
+  function verseActions(d) {
+    var m = me(), hearts = d.verseHearts || {}, reacts = d.verseReactions || {};
+    var liked = !!(m && hearts[m]);
+    var count = Object.keys(hearts).filter(function (u) { return !!hearts[u]; }).length;
+    var notes = (d.notes || []).length, groups = {};
+    Object.keys(reacts).forEach(function (u) {
+      if (reacts[u]) (groups[reacts[u]] = groups[reacts[u]] || []).push(u);
+    });
+    return '<div class="bb-note-actions bb-verse-actions" role="group" aria-label="Verse actions">' +
+      '<button type="button" class="bb-reply-trigger" data-act="versecomment" aria-label="Reply to verse">💬 ' + (notes ? notes + (notes === 1 ? ' reply' : ' replies') : 'Reply') + '</button>' +
+      '<span class="bb-note-reactions">' + Object.keys(groups).map(function (e) {
+        var users = groups[e], mine = users.indexOf(m) !== -1;
+        return '<button type="button" class="bb-react-badge' + (mine ? ' mine' : '') + '" data-act="versereactbadge" data-e="' + esc(e) + '" aria-label="React ' + esc(e) + '"><span>' + esc(e) + '</span><small>' + users.map(function (u) { return esc(emo(u)); }).join('') + '</small></button>';
+      }).join('') + '</span>' +
+      '<div class="bb-actions-right">' +
+        '<button type="button" class="heart-btn' + (liked ? ' liked' : '') + '" data-act="verselove" aria-pressed="' + liked + '" aria-label="Love verse"><span>' + (liked ? '❤️' : '🤍') + '</span>' + (count ? '<span style="font-weight:800;color:var(--c500)">' + count + '</span>' : '') + '</button>' +
+        '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="versepick" aria-label="React to verse"><i class="far fa-face-smile"></i></button>' +
+        '<button type="button" class="heart-btn" style="min-width:34px;justify-content:center" data-act="versemenu" aria-label="More verse options"><i class="fas fa-ellipsis"></i></button>' +
+      '</div></div>';
+  }
+
   /* ---------------- OURS (saved verses) ---------------- */
   function renderOurs() {
     var f = S.filter, m = me();
@@ -768,6 +885,7 @@
         '<div class="rf">' + esc(refEn(d.book, d.chapter, d.verse)) + ' · ' + esc(refAr(d.book, d.chapter, d.verse)) + ' <span style="float:right">' + marksHtml(d) + '</span></div>' +
         (d.en ? '<div style="font-size:14px;line-height:1.55;margin-top:5px">' + esc(clip(d.en, 220)) + '</div>' : '') +
         (d.ar ? '<div class="bb-ar" style="font-size:16px;margin-top:4px">' + esc(clip(d.ar, 220)) + '</div>' : '') +
+        verseActions(d) +
         (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': <span class="bb-user-text" dir="auto" style="display:block">' + esc(clip(last.text, 90)) + '</span></div>' + noteActions(last, true) + '</div>' : '') +
         '</div>';
     }).join('');
@@ -782,6 +900,15 @@
         if (action && x.contains(action)) {
           e.preventDefault(); e.stopPropagation();
           var act = action.getAttribute('data-act'), nid = action.getAttribute('data-nid');
+          if (act === 'verselove') { if (needUser()) return; return toggleVerseHeart(d.book,d.chapter,d.verse,d.en,d.ar); }
+          if (act === 'versereactbadge') { if (needUser()) return; return toggleVerseReaction(d.book,d.chapter,d.verse,d.en,d.ar,action.getAttribute('data-e')); }
+          if (act === 'versepick') return showVerseReactSheet(d);
+          if (act === 'versemenu') return showVerseMenuSheet(d);
+          if (act === 'versecomment') {
+            openSheet(d.book,d.chapter,d.verse,d.en,d.ar);
+            var field = $('bb-note-in'); if (field) field.focus();
+            return;
+          }
           if (act === 'love') {
             if (needUser()) return;
             return toggleNoteHeart(d.book, d.chapter, d.verse, d.en, d.ar, nid);
@@ -937,6 +1064,7 @@
          (!o.en && !o.ar ? '<div class="bb-empty" style="padding:6px">Loading…</div>' : '') + '</div>';
     h += '<div class="bb-row">' +
          '<button class="bb-btn ' + (m && fav[m] ? 'on' : '') + '" data-act="fav">' + (m && fav[m] ? '★ Saved' : '☆ Save') + '</button></div>';
+    h += verseActions(d);
     var o2 = other(m);
     if (o2 && fav[o2]) h += '<p style="font-size:11px;color:#94a3b8;margin-top:8px">' + emo(o2) + ' ' + esc(nm(o2)) + ' saved this ✨</p>';
     h += '<div class="bb-sec">Our notes 💌</div>';
@@ -968,10 +1096,15 @@
     var act = a.getAttribute('data-act'), o = S.open, m = me();
     var nid = a.getAttribute('data-nid'), rid = a.getAttribute('data-rid');
     if (act === 'close') return closeSheet();
+    if (act === 'versecomment') { var field = $('bb-note-in'); if (field) field.focus(); return; }
+    if (act === 'versepick') return showVerseReactSheet({key:o.key,book:o.b,chapter:o.c,verse:o.v,en:o.en,ar:o.ar});
+    if (act === 'versemenu') return showVerseMenuSheet({key:o.key,book:o.b,chapter:o.c,verse:o.v,en:o.en,ar:o.ar});
     if (act === 'cancelreply') { o.replyTo = null; return renderSheet(); }
     if (act === 'reply') return showActionSheet('replies', nid);
     if (needUser()) return;
     function run(fn) { return mutate(o.b, o.c, o.v, o.en, o.ar, fn); }
+    if (act === 'verselove') return toggleVerseHeart(o.b,o.c,o.v,o.en,o.ar);
+    if (act === 'versereactbadge') return toggleVerseReaction(o.b,o.c,o.v,o.en,o.ar,a.getAttribute('data-e'));
     if (act === 'love') return toggleNoteHeart(o.b, o.c, o.v, o.en, o.ar, nid);
     if (act === 'picknote') return showActionSheet('react', nid);
     if (act === 'notenmenu') return showActionSheet('menu', nid);
@@ -1057,7 +1190,15 @@
       var d = docs[key], nn = {}, pk = prev && prev[key] || {};
       var oldFav = prev && prev[key] && prev[key].__fav || {};
       var newFav = Object.assign({}, d.fav || {});
+      var oldVerseHearts = pk.__verseHearts || {}, newVerseHearts = Object.assign({}, d.verseHearts || {});
+      var oldVerseReactions = pk.__verseReactions || {}, newVerseReactions = Object.assign({}, d.verseReactions || {});
       var where = refEn(d.book, d.chapter, d.verse);
+      if (prev && newVerseHearts[other(m)] && !oldVerseHearts[other(m)]) {
+        ev(other(m), '❤️', nm(other(m)) + ' loved the Bible verse ' + where, '', key, '');
+      }
+      if (prev && newVerseReactions[other(m)] && newVerseReactions[other(m)] !== oldVerseReactions[other(m)]) {
+        ev(other(m), newVerseReactions[other(m)], nm(other(m)) + ' reacted ' + newVerseReactions[other(m)] + ' to the Bible verse ' + where, '', key, '');
+      }
       if (prev && !oldFav[other(m)] && newFav[other(m)]) {
         ev(other(m), '⭐', nm(other(m)) + ' saved ' + where, '', key, '');
       }
@@ -1090,6 +1231,8 @@
         });
       });
       nn.__fav = newFav;
+      nn.__verseHearts = newVerseHearts;
+      nn.__verseReactions = newVerseReactions;
       next[key] = nn;
     });
     try { localStorage.setItem(baseKey(m), JSON.stringify(next)); } catch (e) {}
