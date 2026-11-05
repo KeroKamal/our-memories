@@ -852,7 +852,7 @@
       if (reacts[u]) (groups[reacts[u]] = groups[reacts[u]] || []).push(u);
     });
     return '<div class="bb-note-actions bb-verse-actions" role="group" aria-label="Verse actions">' +
-      '<button type="button" class="bb-reply-trigger" data-act="versecomment" aria-label="Reply to verse">💬 ' + (notes ? notes + (notes === 1 ? ' reply' : ' replies') : 'Reply') + '</button>' +
+      (notes ? '<button type="button" class="bb-reply-trigger" data-act="versecomment" aria-label="View verse replies">💬 ' + notes + (notes === 1 ? ' reply' : ' replies') + '</button>' : '') +
       '<span class="bb-note-reactions">' + Object.keys(groups).map(function (e) {
         var users = groups[e], mine = users.indexOf(m) !== -1;
         return '<button type="button" class="bb-react-badge' + (mine ? ' mine' : '') + '" data-act="versereactbadge" data-e="' + esc(e) + '" aria-label="React ' + esc(e) + '"><span>' + esc(e) + '</span><small>' + users.map(function (u) { return esc(emo(u)); }).join('') + '</small></button>';
@@ -886,7 +886,7 @@
         (d.en ? '<div style="font-size:14px;line-height:1.55;margin-top:5px">' + esc(clip(d.en, 220)) + '</div>' : '') +
         (d.ar ? '<div class="bb-ar" style="font-size:16px;margin-top:4px">' + esc(clip(d.ar, 220)) + '</div>' : '') +
         verseActions(d) +
-        (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': <span class="bb-user-text" dir="auto" style="display:block">' + esc(clip(last.text, 90)) + '</span></div>' + noteActions(last, true) + '</div>' : '') +
+        (last ? '<div class="bb-preview-note"><div style="font-size:12px;color:#64748b">' + emo(last.by) + ' ' + esc(nm(last.by)) + ': <span class="bb-user-text" dir="auto" style="display:block">' + esc(clip(last.text, 90)) + '</span></div>' + '</div>' : '') +
         '</div>';
     }).join('');
     body.innerHTML = h + '</div>';
