@@ -4339,6 +4339,7 @@ html[data-color="berry"] {
       box-shadow: 0 12px 40px rgba(0,0,0,.18); overflow: hidden;
     }
     #notif-panel.open { display: flex; }
+    #notif-panel, #notif-list { overscroll-behavior: contain; }
     html.dark #notif-panel { background: var(--x9); border-color: var(--x11); }
     .notif-head { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--c100); }
     html.dark .notif-head { border-color: var(--x11); }
@@ -4351,6 +4352,8 @@ html[data-color="berry"] {
     html.dark .notif-empty { color: var(--x13); }
     .notif-item { display: flex; gap: .65rem; width: 100%; text-align: left; padding: .7rem 1rem; background: none; border: 0; border-bottom: 1px solid var(--c50); }
     html.dark .notif-item { border-color: var(--x11); }
+    .notif-more { display: block; width: 100%; padding: .75rem 1rem; text-align: center; font-size: .8rem; font-weight: 700; color: var(--c600); background: none; border: 0; }
+    html.dark .notif-more { color: var(--c400); }
     .notif-item.unread { background: rgb(var(--c50-rgb) / .9); }
     html.dark .notif-item.unread { background: rgb(var(--x11-rgb) / .8); }
     .notif-ico { flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: var(--c100); display: flex; align-items: center; justify-content: center; font-size: 1rem; }
@@ -4567,6 +4570,7 @@ html[data-color="berry"] {
       if (s < 172800) return 'Yesterday';
       return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
+    var NOTIF_PAGE = 10, notifShown = NOTIF_PAGE;       // only the newest ones first; "Read more" shows the next batch
     function render() {
       var list = visible(), unread = list.filter(function (n) { return n.t > readAt; }).length;
       var badge = document.getElementById('notif-badge');
@@ -4574,14 +4578,18 @@ html[data-color="berry"] {
       var box = document.getElementById('notif-list');
       if (!box) return;
       if (!list.length) { box.innerHTML = '<div class="notif-empty">No notifications yet 💕</div>'; return; }
-      box.innerHTML = list.map(function (n) {
+      var shown = list.slice(0, notifShown), hidden = list.length - shown.length;
+      box.innerHTML = shown.map(function (n) {
         return '<button type="button" class="notif-item ' + (n.t > readAt ? 'unread' : '') + '" data-id="' + esc(n.id) + '">' +
           '<span class="notif-ico">' + esc(n.icon) + '</span>' +
           '<span class="notif-txt">' + esc(n.msg) + (n.sub ? '<span class="notif-sub">' + esc(n.sub) + '</span>' : '') +
           '<span class="notif-time">' + ago(n.t) + '</span></span></button>';
-      }).join('');
+      }).join('') + (hidden > 0 ? '<button type="button" class="notif-more" id="notif-more">Read more (' + hidden + ' older) ▾</button>' : '');
     }
     function openPanel() {
+      render();
+      openedAtY = window.scrollY || 0;
+      notifShown = NOTIF_PAGE;
       render();
       panel.classList.add('open'); backdrop.classList.add('open');
       readAt = Date.now(); sset(READ_KEY, String(readAt));      // highlighted rows stay highlighted until you close it
@@ -4591,6 +4599,12 @@ html[data-color="berry"] {
     window.toggleNotifications = function () { panelOpen() ? closePanel() : openPanel(); };
 
     backdrop.addEventListener('click', closePanel);
+    // scrolling the page (or dragging outside the panel) closes it, so it never follows you down the page
+    var openedAtY = 0;
+    backdrop.addEventListener('touchmove', closePanel, { passive: true });
+    window.addEventListener('scroll', function () {
+      if (panelOpen() && Math.abs((window.scrollY || 0) - openedAtY) > 8) closePanel();
+    }, { passive: true });
     document.getElementById('notif-clear').addEventListener('click', function () {
       var m = me(); LIST = LIST.filter(function (n) { return m && n.actor === m; });
       sset(LIST_KEY, JSON.stringify(LIST)); render();
@@ -4655,6 +4669,7 @@ html[data-color="berry"] {
     }
 
     panel.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('#notif-more')) { notifShown += NOTIF_PAGE; render(); return; }
       var row = e.target.closest ? e.target.closest('.notif-item') : null;
       if (!row) return;
       var n = LIST.filter(function (x) { return x.id === row.getAttribute('data-id'); })[0];
