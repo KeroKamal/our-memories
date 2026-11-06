@@ -450,6 +450,11 @@ html[data-color="berry"] {
       box-shadow: 0 6px 18px rgb(var(--c500-rgb) / .14), 0 1px 3px rgba(0,0,0,.08);
       transform: rotate(var(--tilt, 0deg));
     }
+    .stack-badge {
+      position: absolute; bottom: 8px; right: 8px; padding: 3px 9px; border-radius: 9999px;
+      background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-weight: 700; pointer-events: none;
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    }
     .polaroid-img {
       position: relative;
       width: 100%;
@@ -1412,6 +1417,7 @@ html[data-color="berry"] {
     let journal = [];
     let currentPhotoId = null;       // id of the photo shown in the lightbox
     let sheetPhotoId = null;         // id of the photo the bottom sheet is about
+    let sheetPhotoIds = [];          // every photo of the post that the sheet is about (edit / delete apply to all)
     let lastSurpriseId = null;
 
     // ---------- Photo settings remembered on this phone ----------
@@ -2617,15 +2623,35 @@ html[data-color="berry"] {
       }
     }
 
-    function openPhotoMenu(id) {
+    // Photos added together (same note, same person, ids a few milliseconds apart) are ONE post.
+    // Works for old uploads too, because a batch is saved with consecutive ids.
+    function buildPhotoGroups(list) {
+      const groups = [];
+      list.forEach(ph => {
+        const g = groups[groups.length - 1];
+        const prev = g && g[g.length - 1];
+        if (prev && prev.caption === ph.caption && prev.author === ph.author && Math.abs(Number(prev.id) - Number(ph.id)) <= 20) g.push(ph);
+        else groups.push([ph]);
+      });
+      return groups;
+    }
+
+    function groupIdsOf(id) {
+      const g = buildPhotoGroups(photos).find(x => x.some(ph => Number(ph.id) === Number(id)));
+      return g ? g.map(ph => Number(ph.id)) : [Number(id)];
+    }
+
+    function openPhotoMenu(id, wholePost) {
       if (id == null) return;
       sheetPhotoId = id;
+      sheetPhotoIds = wholePost ? groupIdsOf(id) : [Number(id)];
+      const many = sheetPhotoIds.length > 1;
       openSheet(`
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openReplySheet('photos', ${Number(id)})">💬 Reply</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="togglePin('photos', ${Number(id)})">${(itemOf('photos', id) || {}).pinned ? '📌 Unpin' : '📌 Pin to top'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openEditSheet()">✏️ Edit note</button>
-        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openDeleteSheet()">🗑️ Delete memory</button>
+        <button class="sheet-btn bg-rose-50 text-rose-600 mb-2" onclick="openDeleteSheet()">🗑️ ${many ? 'Delete all ' + sheetPhotoIds.length + ' photos' : 'Delete memory'}</button>
         <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Cancel</button>
       `);
     }
@@ -2645,10 +2671,12 @@ html[data-color="berry"] {
     }
 
     async function saveCaption() {
-      const id = sheetPhotoId;
+      const ids = sheetPhotoIds.length ? sheetPhotoIds : [sheetPhotoId];
       const value = document.getElementById('edit-caption').value.trim();
       try {
-        await db.collection('photos').doc(String(id)).update({ caption: value || 'Our memory ❤' });
+        const batch = db.batch();
+        ids.forEach(pid => batch.update(db.collection('photos').doc(String(pid)), { caption: value || 'Our memory ❤' }));
+        await batch.commit();
         closeSheet();
         showToast('Note updated 💕');
       } catch (err) {
@@ -2662,15 +2690,18 @@ html[data-color="berry"] {
         <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
         <p class="text-4xl text-center mb-1">🥺</p>
         <p class="font-cursive text-2xl text-rose-600 text-center mb-4">Are you sure?</p>
+        ${sheetPhotoIds.length > 1 ? `<p class="text-xs text-slate-400 text-center mb-3">This removes all ${sheetPhotoIds.length} photos of this post.</p>` : ''}
         <button class="sheet-btn bg-red-500 text-white mb-2" onclick="confirmDelete()">Yes, delete it</button>
         <button class="sheet-btn bg-rose-50 text-rose-600" onclick="closeSheet()">Keep it 💕</button>
       `);
     }
 
     async function confirmDelete() {
-      const id = sheetPhotoId;
+      const ids = sheetPhotoIds.length ? sheetPhotoIds : [sheetPhotoId];
       try {
-        await db.collection('photos').doc(String(id)).delete();
+        const batch = db.batch();
+        ids.forEach(pid => batch.delete(db.collection('photos').doc(String(pid))));
+        await batch.commit();
         closeSheet();
         if (document.getElementById('image-modal').classList.contains('open')) closeModal();
         showToast('Memory removed from the app');
@@ -2701,7 +2732,8 @@ html[data-color="berry"] {
               </button>`;
     }
 
-    function carouselCardHtml(p, index) {
+    function carouselCardHtml(g, index, total) {
+      const p = g[0];                                   // the post is shown with its first photo
       const tilt = TILTS[index % TILTS.length];
       const chips = reactionChipsHtml('photos', p, false);
       return `
@@ -2710,8 +2742,9 @@ html[data-color="berry"] {
             <img src="${p.imageData}" alt="Memory" loading="lazy">
             ${p.pinned ? '<span class="absolute top-2 right-2 text-base bg-white/85 rounded-full w-7 h-7 flex items-center justify-center pointer-events-none">📌</span>' : ''}
             <span class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
-              #${photos.length - index}
+              #${total - index}
             </span>
+            ${g.length > 1 ? `<span class="stack-badge">📷 ${g.length}</span>` : ''}
           </div>
           <div class="pt-3 px-1 space-y-2" style="min-width:0">
             <p class="font-sans text-sm font-medium leading-snug text-slate-700 safe-text caption-clamp user-text-auto" dir="auto">${escapeHtml(p.caption)}</p>
@@ -2724,7 +2757,7 @@ html[data-color="berry"] {
               <div class="flex items-center gap-1 flex-shrink-0">
                 ${heartButtonHtml(p)}
                 <button type="button" class="mini-btn" onclick="event.stopPropagation(); openReactSheet('photos', ${Number(p.id)})" aria-label="React with an emoji"><i class="far fa-face-smile"></i></button>
-                <button type="button" class="mini-btn plain" onclick="openPhotoMenu(${Number(p.id)})" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
+                <button type="button" class="mini-btn plain" onclick="openPhotoMenu(${Number(p.id)}, true)" aria-label="More options"><i class="fas fa-ellipsis"></i></button>
               </div>
             </div>
             ${(chips || (p.replies || []).length) ? `<div class="flex flex-wrap gap-1.5">${chips}${replyChipHtml('photos', p)}</div>` : ''}
@@ -2733,7 +2766,8 @@ html[data-color="berry"] {
       `;
     }
 
-    function gridTileHtml(p) {
+    function gridTileHtml(g) {
+      const p = g[0];
       const kero = p.author === 'Kero';
       const hasAuthor = p.author === 'Kero' || p.author === 'Tota';
       const key = String(p.id);
@@ -2753,14 +2787,15 @@ html[data-color="berry"] {
             </button>
           </div>
           <p class="font-sans text-xs font-medium leading-tight text-slate-700 mt-2 px-0.5 safe-text caption-clamp-1 user-text-auto" dir="auto">${escapeHtml(p.caption)}</p>
-          <p class="text-[10px] text-slate-400 px-0.5 mt-0.5">${escapeHtml(formatPhotoDate(p))}</p>
+          <p class="text-[10px] text-slate-400 px-0.5 mt-0.5">${escapeHtml(formatPhotoDate(p))}${g.length > 1 ? ` · 📷 ${g.length}` : ''}</p>
         </div>
       `;
     }
 
     function renderPhotos() {
       const container = document.getElementById('photos-container');
-      const n = photos.length;
+      const groups = buildPhotoGroups(photos);
+      const n = groups.length;
       document.getElementById('photo-counter').innerText = `${n} ${n === 1 ? 'memory' : 'memories'} 💕`;
       renderPinnedPhotos();
       updateViewButtons();
@@ -2781,20 +2816,20 @@ html[data-color="berry"] {
         container.className = 'grid grid-cols-2 gap-3 pb-2';
         let html = '';
         let lastLabel = null;
-        photos.forEach(p => {
-          const label = monthLabel(p);
+        groups.forEach(g => {
+          const label = monthLabel(g[0]);
           if (label !== lastLabel) {
-            const count = photos.filter(x => monthLabel(x) === label).length;
+            const count = groups.filter(x => monthLabel(x[0]) === label).length;
             html += `<div class="col-span-2 font-cursive text-2xl text-rose-500 pt-2 px-1">${escapeHtml(label)} <span class="font-sans text-[11px] text-slate-400 font-semibold">· ${count}</span></div>`;
             lastLabel = label;
           }
-          html += gridTileHtml(p);
+          html += gridTileHtml(g);
         });
         container.innerHTML = html;
       } else {
         const keepScroll = container.scrollLeft;
         container.className = 'flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar carousel-pad';
-        container.innerHTML = photos.map((p, index) => carouselCardHtml(p, index)).join('');
+        container.innerHTML = groups.map((g, index) => carouselCardHtml(g, index, groups.length)).join('');
         container.scrollLeft = keepScroll;
       }
     }
