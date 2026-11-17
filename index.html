@@ -27,6 +27,7 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <meta name="theme-color" content="#ffffff">
   <!-- Apply the saved (or system) theme before the page paints, so there is no white flash at night -->
   <script>
@@ -450,6 +451,8 @@ html[data-color="berry"] {
       box-shadow: 0 6px 18px rgb(var(--c500-rgb) / .14), 0 1px 3px rgba(0,0,0,.08);
       transform: rotate(var(--tilt, 0deg));
     }
+    .video-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .video-play > span { width: 52px; height: 52px; border-radius: 9999px; background: rgba(0,0,0,.5); color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; padding-left: 4px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
     .stack-badge {
       position: absolute; bottom: 8px; right: 8px; padding: 3px 9px; border-radius: 9999px;
       background: rgba(0,0,0,.55); color: #fff; font-size: 11px; font-weight: 700; pointer-events: none;
@@ -520,6 +523,7 @@ html[data-color="berry"] {
       margin: 4px 0;
       touch-action: none;         /* we handle pinch / pan / swipe / double-tap ourselves */
     }
+    #modal-video { display: block; max-width: 100%; max-height: 100%; border-radius: 8px; background: #000; }
     #modal-image {
       display: block;
       max-width: 100%;
@@ -784,6 +788,8 @@ html[data-color="berry"] {
     .thumb-strip { display: flex; gap: 14px; overflow-x: auto; padding: 10px 8px 12px; -ms-overflow-style: none; scrollbar-width: none; }
     .thumb-strip::-webkit-scrollbar { display: none; }
     .thumb { position: relative; flex: 0 0 auto; width: 88px; background: #fff; padding: 5px 5px 6px; border-radius: 4px; box-shadow: 0 4px 12px rgb(var(--c500-rgb) / .18), 0 1px 2px rgba(0,0,0,.1); transform: rotate(var(--tilt, 0deg)); }
+    .thumb video { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; background: #000; }
+    .thumb-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); color: #fff; font-size: 22px; text-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
     .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; border-radius: 2px; }
     .thumb button { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 9999px; background: var(--c500); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
 
@@ -1068,10 +1074,11 @@ html[data-color="berry"] {
       <div class="card-grad rounded-3xl p-5 border border-rose-100 shadow-sm space-y-4">
         <div class="text-center">
           <h3 class="font-cursive text-3xl font-bold text-rose-600 leading-tight">Our Memories 📸</h3>
-          <p class="text-[11px] text-slate-400 mt-0.5">Pick one photo, or several at once</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Pick photos or videos, one or several at once</p>
         </div>
 
-        <input type="file" id="photo-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
+        <input type="file" id="photo-file-input" accept="image/*,video/*" multiple class="hidden" onchange="handleFileSelect(event)">
+        <input type="file" id="video-record-input" accept="video/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
 
         <!-- Selected photos (small polaroids) -->
         <div id="image-preview-container" class="hidden">
@@ -1081,7 +1088,13 @@ html[data-color="berry"] {
         <button id="select-photo-btn" onclick="document.getElementById('photo-file-input').click()"
                 class="w-full flex items-center justify-center gap-2 bg-white/70 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-2xl text-xs font-bold transition">
           <i class="fas fa-camera text-base"></i>
-          <span id="select-photo-text">Choose Images</span>
+          <span id="select-photo-text">Choose photos or videos</span>
+        </button>
+
+        <button id="record-video-btn" type="button" onclick="document.getElementById('video-record-input').click()"
+                class="w-full flex items-center justify-center gap-2 bg-white/70 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-2xl text-xs font-bold transition">
+          <i class="fas fa-video text-base"></i>
+          <span>Record a video</span>
         </button>
 
         <div class="space-y-1.5 hidden">
@@ -1140,6 +1153,7 @@ html[data-color="berry"] {
         <div id="photos-container">
           <!-- Dynamically Populated -->
         </div>
+        <div id="photos-more" class="hidden" style="margin-top:1rem"></div>
       </div>
     </section>
 
@@ -1315,6 +1329,7 @@ html[data-color="berry"] {
     <!-- Center Zoom Area -->
     <div id="modal-image-container">
       <img id="modal-image" src="" alt="Zoomable Memory">
+      <video id="modal-video" class="hidden" controls playsinline preload="metadata"></video>
     </div>
 
     <!-- Actions: heart / react / save & share / more -->
@@ -1397,6 +1412,7 @@ html[data-color="berry"] {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;   // videos live in Firebase Storage
     // Keep a copy of the data on the phone: the app opens instantly and still works with no signal.
     try { db.enablePersistence({ synchronizeTabs: true }).catch(function (e) { console.warn('offline cache off:', e && e.code); }); } catch (e) {}
 
@@ -1413,7 +1429,15 @@ html[data-color="berry"] {
     let isZoomed = false;
     let isUploading = false;
 
-    let photos = [];
+    let photos = [];                 // everything this phone knows about (the loaded page + a few old ones fetched on purpose)
+    const PHOTO_PAGE = 30;           // memories loaded at start; "Load more" adds this many again
+    let photoLimit = PHOTO_PAGE;
+    let photoPage = [];              // the newest photos (the page that is loaded)
+    let photosHasMore = false;       // are there older memories that are not loaded yet?
+    let photosWindowMinId = 0;       // id of the oldest photo in the loaded page
+    let photosLoadingMore = false;
+    let pinnedDocs = [], otdDocs = [], openedDocs = [];   // old photos fetched on purpose (pinned, "on this day", opened from a notification)
+    let photosUnsub = null;
     let journal = [];
     let currentPhotoId = null;       // id of the photo shown in the lightbox
     let sheetPhotoId = null;         // id of the photo the bottom sheet is about
@@ -1573,11 +1597,24 @@ html[data-color="berry"] {
     }
 
     // ---------- Previous / next photo ----------
-    function currentPhotoIndex() {
-      return photos.findIndex(p => Number(p.id) === Number(currentPhotoId));
+    // the photos you can swipe through in the viewer: the gallery; an old photo opened from elsewhere is shown alone
+    function viewerList() {
+      const cur = photos.find(p => Number(p.id) === Number(currentPhotoId));
+      return cur && cur._extra ? [cur] : photos.filter(p => !p._extra);
     }
+    function currentPhotoIndex() {
+      return viewerList().findIndex(p => Number(p.id) === Number(currentPhotoId));
+    }
+    function currentPhoto() { return viewerList()[currentPhotoIndex()]; }
 
     // direction: +1 = coming from the right (next), -1 = coming from the left (previous), 0 = no animation
+    function stopModalVideo() {
+      const vid = document.getElementById('modal-video');
+      if (!vid) return;
+      try { vid.pause(); vid.removeAttribute('src'); vid.removeAttribute('poster'); vid.load(); } catch (e) {}
+      vid.classList.add('hidden');
+    }
+
     function showPhoto(photo, direction) {
       if (!photo) return;
       currentPhotoId = photo.id;
@@ -1586,6 +1623,16 @@ html[data-color="berry"] {
       document.getElementById('modal-caption').textContent = photo.caption || '';
       document.getElementById('modal-date').textContent = formatPhotoDate(photo);
       img.src = photo.imageData;
+      const vid = document.getElementById('modal-video');
+      if (photo.videoUrl) {                     // a video: show the player instead of the picture
+        img.classList.add('hidden');
+        vid.classList.remove('hidden');
+        vid.poster = photo.imageData;
+        if (vid.getAttribute('src') !== photo.videoUrl) vid.src = photo.videoUrl;
+      } else {
+        stopModalVideo();
+        img.classList.remove('hidden');
+      }
       document.getElementById('modal-caption-box').scrollTo(0, 0);
 
       updateNavUi();
@@ -1613,7 +1660,7 @@ html[data-color="berry"] {
 
     function updateNavUi() {
       const idx = currentPhotoIndex();
-      const total = photos.length;
+      const total = viewerList().length;
       document.getElementById('modal-counter').textContent = idx >= 0 ? `${idx + 1} / ${total}` : '';
       document.getElementById('nav-prev').classList.toggle('hidden-arrow', idx <= 0);
       document.getElementById('nav-next').classList.toggle('hidden-arrow', idx < 0 || idx >= total - 1);
@@ -1621,7 +1668,7 @@ html[data-color="berry"] {
 
     // heart button + author badge + reactions in the viewer
     function updateViewerActions() {
-      const p = photos[currentPhotoIndex()];
+      const p = currentPhoto();
       if (!p) return;
       const liked = photoLiked.has(String(p.id));
       const h = Math.max(0, Number(p.hearts) || 0);
@@ -1634,7 +1681,7 @@ html[data-color="berry"] {
 
     // when the photo changed on the server while the viewer is open (caption edit, hearts)
     function refreshViewerInfo() {
-      const p = photos[currentPhotoIndex()];
+      const p = currentPhoto();
       if (!p) return;
       document.getElementById('modal-caption').textContent = p.caption || '';
       document.getElementById('modal-date').textContent = formatPhotoDate(p);
@@ -1646,8 +1693,9 @@ html[data-color="berry"] {
       const idx = currentPhotoIndex();
       if (idx < 0) return false;
       const target = idx + step;
-      if (target < 0 || target >= photos.length) return false;
-      showPhoto(photos[target], step);
+      const list = viewerList();
+      if (target < 0 || target >= list.length) return false;
+      showPhoto(list[target], step);
       return true;
     }
 
@@ -1804,6 +1852,8 @@ html[data-color="berry"] {
     document.addEventListener('DOMContentLoaded', () => {
       setupZoomGestures();
       document.getElementById('modal-image').setAttribute('draggable', 'false');
+      // touches on the video player belong to the player (play, pause, scrub), not to the photo gestures
+      ['touchstart', 'touchmove', 'touchend'].forEach(ev => document.getElementById('modal-video').addEventListener(ev, e => e.stopPropagation(), { passive: true }));
 
       document.addEventListener('keydown', (e) => {
         const open = document.getElementById('image-modal').classList.contains('open');
@@ -1813,8 +1863,41 @@ html[data-color="berry"] {
       });
     });
 
-    db.collection('photos').orderBy('id', 'desc').onSnapshot(snapshot => {
-      photos = snapshot.docs.map(doc => doc.data());
+    // Only the newest memories are downloaded (30 at first). "Load more" asks for 30 more.
+    // A few extra documents are read so that a post (several photos added together) is never cut in half.
+    function startPhotosListener() {
+      if (photosUnsub) photosUnsub();
+      const EXTRA = 12;
+      const max = photoLimit + EXTRA;
+      photosUnsub = db.collection('photos').orderBy('id', 'desc').limit(max).onSnapshot(snapshot => {
+        const docs = snapshot.docs.map(doc => doc.data());
+        let page = docs;
+        photosHasMore = false;
+        if (docs.length >= max) {
+          let i = photoLimit;
+          while (i < docs.length && sameBatch(docs[i - 1], docs[i])) i++;
+          page = docs.slice(0, i);
+          photosHasMore = true;
+        }
+        photoPage = page;
+        photosWindowMinId = page.length ? Math.min.apply(null, page.map(x => Number(x.id))) : 0;
+        photosLoadingMore = false;
+        mergePhotos();
+        afterPhotosChanged();
+        fetchOtdExtras();
+      }, err => { photosLoadingMore = false; console.error('photos listener error', err); });
+    }
+
+    function mergePhotos() {
+      const have = new Set(photoPage.map(x => Number(x.id)));
+      const extras = [];
+      [pinnedDocs, otdDocs, openedDocs].forEach(list => list.forEach(x => {
+        if (!have.has(Number(x.id))) { have.add(Number(x.id)); extras.push(Object.assign({}, x, { _extra: true })); }
+      }));
+      photos = photoPage.concat(extras).sort((x, y) => Number(y.id) - Number(x.id));
+    }
+
+    function afterPhotosChanged() {
       renderPhotos();
       refreshReplySheet();
       renderOnThisDay();
@@ -1827,7 +1910,58 @@ html[data-color="berry"] {
           refreshViewerInfo();
         }
       }
-    }, err => console.error('photos listener error', err));
+    }
+
+    function loadMorePhotos() {
+      if (photosLoadingMore) return;
+      photosLoadingMore = true;
+      photoLimit += PHOTO_PAGE;
+      renderPhotos();
+      startPhotosListener();
+    }
+
+    // pinned memories are always shown, even when they are older than the loaded page
+    db.collection('photos').where('pinned', '==', true).onSnapshot(snap => {
+      pinnedDocs = snap.docs.map(d => d.data());
+      mergePhotos();
+      afterPhotosChanged();
+    }, err => console.error('pinned listener error', err));
+
+    // "On this day": the day a month / a year ago may be older than the loaded page, so ask for exactly those days
+    let otdKey = '';
+    async function fetchOtdExtras() {
+      if (!photosHasMore) { if (otdDocs.length) { otdDocs = []; mergePhotos(); afterPhotosChanged(); } return; }
+      const d = new Date();
+      const key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '|' + photosWindowMinId;
+      if (key === otdKey) return;
+      otdKey = key;
+      try {
+        const found = [];
+        await Promise.all(otdTargets().map(async t => {
+          const start = new Date(t.y, t.m, t.d).getTime(), end = new Date(t.y, t.m, t.d + 1).getTime();
+          if (start >= photosWindowMinId) return;                  // that day is already inside the loaded page
+          const snap = await db.collection('photos').where('id', '>=', start).where('id', '<', end).get();
+          snap.docs.forEach(x => found.push(x.data()));
+        }));
+        otdDocs = found;
+        mergePhotos();
+        afterPhotosChanged();
+      } catch (err) { otdKey = ''; console.error('on this day fetch error', err); }
+    }
+
+    // open an old memory that is not loaded (for example from a notification)
+    window.fetchPhotoById = async function (id) {
+      try {
+        const doc = await db.collection('photos').doc(String(id)).get();
+        if (!doc.exists) return false;
+        openedDocs = openedDocs.filter(x => Number(x.id) !== Number(id)).concat([doc.data()]);
+        mergePhotos();
+        afterPhotosChanged();
+        return true;
+      } catch (err) { console.error(err); return false; }
+    };
+
+    startPhotosListener();
 
     db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
       journal = snapshot.docs.map(doc => doc.data());
@@ -1961,14 +2095,14 @@ html[data-color="berry"] {
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = false;
       uploadBtn.className = "w-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-semibold py-3 rounded-2xl text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer";
-      document.getElementById('upload-btn-text').innerText = n > 1 ? `Upload ${n} photos` : 'Upload';
+      document.getElementById('upload-btn-text').innerText = n > 1 ? `Upload ${n} items` : 'Upload';
     }
 
     function setUploadButtonIdle() {
       const uploadBtn = document.getElementById('upload-drive-btn');
       uploadBtn.disabled = true;
       uploadBtn.className = "w-full bg-rose-300 text-white font-semibold py-3 rounded-2xl text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-not-allowed";
-      document.getElementById('upload-btn-text').innerText = "Select an image first";
+      document.getElementById('upload-btn-text').innerText = "Select a photo or video first";
     }
 
     // photos chosen but not uploaded yet (kept as File objects; they are read one by one while uploading)
@@ -1976,14 +2110,21 @@ html[data-color="berry"] {
     const MAX_FILES = 10;
     const THUMB_TILTS = [-3, 2, -1.5, 3, -2, 1.5];
 
+    const MAX_VIDEO_MB = 200;
+    function isVideoFile(f) { return (f.type && f.type.indexOf('video/') === 0) || /\.(mp4|mov|m4v|webm|3gp|3gpp)$/i.test(f.name || ''); }
+
     function handleFileSelect(event) {
-      const files = Array.from(event.target.files || []).filter(f => (f.type && f.type.indexOf('image/') === 0) || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name));
+      let files = Array.from(event.target.files || []).filter(f => (f.type && f.type.indexOf('image/') === 0) || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name) || isVideoFile(f));
       event.target.value = '';           // lets you pick the very same photo again later
       if (!files.length || isUploading) return;
 
+      const tooBig = files.filter(f => isVideoFile(f) && f.size > MAX_VIDEO_MB * 1024 * 1024);
+      if (tooBig.length) { showToast(`A video is too big (the limit is ${MAX_VIDEO_MB} MB) 🎥`); files = files.filter(f => tooBig.indexOf(f) === -1); }
+      if (!files.length) return;
+
       const room = MAX_FILES - selectedFiles.length;
-      if (files.length > room) showToast(`You can add up to ${MAX_FILES} photos at once 📸`);
-      files.slice(0, Math.max(0, room)).forEach(f => selectedFiles.push({ file: f, url: URL.createObjectURL(f) }));
+      if (files.length > room) showToast(`You can add up to ${MAX_FILES} items at once 📸`);
+      files.slice(0, Math.max(0, room)).forEach(f => selectedFiles.push({ file: f, url: URL.createObjectURL(f), isVideo: isVideoFile(f) }));
       renderSelected();
     }
 
@@ -2007,12 +2148,12 @@ html[data-color="berry"] {
       document.getElementById('image-preview-container').classList.toggle('hidden', n === 0);
       document.getElementById('thumb-strip').innerHTML = selectedFiles.map((x, i) => `
         <div class="thumb" style="--tilt:${THUMB_TILTS[i % THUMB_TILTS.length]}deg">
-          <img src="${x.url}" alt="Selected photo ${i + 1}">
+          ${x.isVideo ? `<video src="${x.url}#t=0.1" muted playsinline preload="metadata"></video><span class="thumb-play">▶</span>` : `<img src="${x.url}" alt="Selected photo ${i + 1}">`}
           <button type="button" onclick="removeSelected(${i})" aria-label="Remove photo ${i + 1}"><i class="fas fa-times"></i></button>
         </div>
       `).join('');
-      document.getElementById('select-photo-text').textContent = n === 0 ? 'Choose Images' : (n >= MAX_FILES ? `${n} photos selected` : 'Add more photos');
-      document.getElementById('photo-notes-label').textContent = n > 1 ? `Notes · the same note goes under all ${n} photos` : 'Notes';
+      document.getElementById('select-photo-text').textContent = n === 0 ? 'Choose photos or videos' : (n >= MAX_FILES ? `${n} selected` : 'Add more');
+      document.getElementById('photo-notes-label').textContent = n > 1 ? `Notes · the same note goes under all ${n}` : 'Notes';
       if (n === 0) setUploadButtonIdle(); else if (!isUploading) setUploadButtonReady();
     }
 
@@ -2028,6 +2169,69 @@ html[data-color="berry"] {
         r.onload = () => resolve(r.result);
         r.onerror = () => reject(r.error || new Error('Could not read the photo'));
         r.readAsDataURL(file);
+      });
+    }
+
+    // ---------- Videos: a still frame is stored in the database, the video itself in Firebase Storage ----------
+    function fallbackPoster() {
+      const c = document.createElement('canvas');
+      c.width = 640; c.height = 640;
+      const g = c.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, 640, 640);
+      grad.addColorStop(0, '#3b2a46'); grad.addColorStop(1, '#6b3a5e');
+      g.fillStyle = grad; g.fillRect(0, 0, 640, 640);
+      g.font = '200px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('🎬', 320, 330);
+      return c.toDataURL('image/jpeg', 0.8);
+    }
+
+    function makeVideoPoster(file) {
+      return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true; v.preload = 'auto';
+        v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+        let done = false, dur = 0, timer = null;
+        function finish(poster) {
+          if (done) return;
+          done = true; clearTimeout(timer);
+          try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
+          URL.revokeObjectURL(url);
+          resolve({ poster: poster || fallbackPoster(), dur: dur });
+        }
+        function draw() {
+          try {
+            const w = v.videoWidth, h = v.videoHeight;
+            if (!w || !h) return finish(null);
+            const sc = Math.min(1, MAX_DIMENSION / Math.max(w, h));
+            const c = document.createElement('canvas');
+            c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            finish(c.toDataURL('image/jpeg', JPEG_QUALITY));
+          } catch (e) { finish(null); }
+        }
+        v.onloadedmetadata = () => {
+          dur = isFinite(v.duration) ? v.duration : 0;
+          try { v.currentTime = Math.min(0.5, (dur || 1) / 2); } catch (e) {}
+        };
+        v.onseeked = draw;
+        v.onerror = () => finish(null);
+        timer = setTimeout(() => { if (v.readyState >= 2) draw(); else finish(null); }, 5000);
+        v.src = url;
+      });
+    }
+
+    function uploadVideoToStorage(file, id, onProgress) {
+      return new Promise((resolve, reject) => {
+        if (!storage) { const e = new Error('Storage is not available'); e.code = 'storage/unavailable'; return reject(e); }
+        const ext = (((file.name || '').match(/\.([a-z0-9]+)$/i) || [])[1] || 'mp4').toLowerCase();
+        const path = 'videos/' + id + '.' + ext;
+        const mime = file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4');
+        const task = storage.ref(path).put(file, { contentType: mime });
+        task.on('state_changed',
+          snap => onProgress(snap.bytesTransferred / Math.max(1, snap.totalBytes)),
+          reject,
+          async () => { try { resolve({ url: await task.snapshot.ref.getDownloadURL(), path: path, mime: mime }); } catch (e) { reject(e); } });
       });
     }
 
@@ -2050,6 +2254,7 @@ html[data-color="berry"] {
       const baseId = Date.now();
       let uploaded = 0;
       let failed = false;
+      let uploadErrCode = '';
 
       const uploadBtn = document.getElementById('upload-drive-btn');
       const btnText = document.getElementById('upload-btn-text');
@@ -2071,21 +2276,35 @@ html[data-color="berry"] {
         }, 300);
 
         try {
-          const dataUrl = await readAsDataURL(item.file);
-          const base64 = dataUrl.split(',')[1];
-          const compressed = await compressImage(dataUrl);
+          let compressed, videoInfo = null;
+          if (item.isVideo) {
+            clearInterval(creep);
+            setProgress(segStart + (segEnd - segStart) * 0.04, `${total > 1 ? 'Video ' + (i + 1) + ' of ' + total : 'Your video'}: getting ready… 🎬`);
+            const meta = await makeVideoPoster(item.file);
+            compressed = meta.poster;
+            const up = await uploadVideoToStorage(item.file, baseId + (total - 1 - i), frac => {
+              const pc = segStart + (segEnd - segStart) * (0.06 + 0.8 * frac);
+              document.getElementById('upload-progress-bar').style.width = pc + '%';
+              document.getElementById('upload-progress-text').textContent = `${total > 1 ? 'Video ' + (i + 1) + ' of ' + total : 'Your video'}: ${Math.round(frac * 100)}% 📤`;
+            });
+            videoInfo = { videoUrl: up.url, videoPath: up.path, videoMime: up.mime, videoDur: Math.round(meta.dur || 0) };
+          } else {
+            const dataUrl = await readAsDataURL(item.file);
+            const base64 = dataUrl.split(',')[1];
+            compressed = await compressImage(dataUrl);
 
-          await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              image: base64,
-              mimeType: item.file.type || 'image/jpeg',
-              filename: item.file.name,
-              caption: caption || 'Our memory'
-            })
-          });
+            await fetch(APPS_SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                image: base64,
+                mimeType: item.file.type || 'image/jpeg',
+                filename: item.file.name,
+                caption: caption || 'Our memory'
+              })
+            });
+          }
           clearInterval(creep);
           setProgress(segStart + (segEnd - segStart) * 0.85, `${label}: adding it to your album… 💕`);
 
@@ -2097,6 +2316,7 @@ html[data-color="berry"] {
             hearts: 0,
             date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           };
+          if (videoInfo) Object.assign(newPhoto, videoInfo);
           if (voiceState.photo.data) {
             // a Firestore document must stay under 1 MiB
             if (compressed.length + voiceState.photo.data.length < 950000) {
@@ -2116,6 +2336,7 @@ html[data-color="berry"] {
           clearInterval(creep);
           console.error(err);
           failed = true;
+          uploadErrCode = (err && err.code) ? String(err.code) : '';
           break;
         }
       }
@@ -2131,9 +2352,11 @@ html[data-color="berry"] {
         setTimeout(() => document.getElementById('upload-progress').classList.add('hidden'), 900);
       } else {
         document.getElementById('upload-progress').classList.add('hidden');
-        showToast(uploaded > 0
-          ? `${uploaded} of ${total} uploaded. Tap Upload to try the rest 💕`
-          : 'Error uploading. Please check your internet connection.');
+        showToast(uploadErrCode.indexOf('storage/') === 0
+          ? `Video upload failed (${uploadErrCode}). Check that Firebase Storage is turned on and its rules allow videos.`
+          : uploaded > 0
+            ? `${uploaded} of ${total} uploaded. Tap Upload to try the rest 💕`
+            : 'Error uploading. Please check your internet connection.');
         renderSelected();
       }
     }
@@ -2281,6 +2504,7 @@ html[data-color="berry"] {
       modal.style.transition = 'none';
       modal.style.background = '';
       document.body.classList.remove('modal-open');
+      stopModalVideo();
       currentPhotoId = null;
     }
 
@@ -2333,6 +2557,7 @@ html[data-color="berry"] {
     }
 
     function downloadPhoto(p) {
+      if (p.videoUrl) { window.open(p.videoUrl, '_blank'); return; }   // a video opens in the browser, where it can be saved
       const a = document.createElement('a');
       a.href = p.imageData;
       a.download = `kero-tota-${p.id}.jpg`;
@@ -2341,9 +2566,21 @@ html[data-color="berry"] {
       a.remove();
     }
 
+    async function shareVideo(p) {
+      try {
+        const res = await fetch(p.videoUrl);
+        const blob = await res.blob();
+        const ext = ((p.videoPath || '').split('.').pop() || 'mp4');
+        const file = new File([blob], `kero-tota-${p.id}.${ext}`, { type: blob.type || p.videoMime || 'video/mp4' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+      } catch (err) { if (err && err.name === 'AbortError') return; }
+      window.open(p.videoUrl, '_blank');
+    }
+
     async function sharePhoto() {
-      const p = photos[currentPhotoIndex()];
+      const p = currentPhoto();
       if (!p) return;
+      if (p.videoUrl) { shareVideo(p); return; }
       try {
         // convert synchronously so iOS still counts this as a tap
         const file = dataUrlToFile(p.imageData, `kero-tota-${p.id}.jpg`);
@@ -2625,19 +2862,23 @@ html[data-color="berry"] {
 
     // Photos added together (same note, same person, ids a few milliseconds apart) are ONE post.
     // Works for old uploads too, because a batch is saved with consecutive ids.
+    function sameBatch(prev, ph) {
+      return !!prev && prev.caption === ph.caption && prev.author === ph.author && Math.abs(Number(prev.id) - Number(ph.id)) <= 20;
+    }
+
     function buildPhotoGroups(list) {
       const groups = [];
       list.forEach(ph => {
         const g = groups[groups.length - 1];
         const prev = g && g[g.length - 1];
-        if (prev && prev.caption === ph.caption && prev.author === ph.author && Math.abs(Number(prev.id) - Number(ph.id)) <= 20) g.push(ph);
+        if (sameBatch(prev, ph)) g.push(ph);
         else groups.push([ph]);
       });
       return groups;
     }
 
     function groupIdsOf(id) {
-      const g = buildPhotoGroups(photos).find(x => x.some(ph => Number(ph.id) === Number(id)));
+      const g = buildPhotoGroups(photos.filter(x => !x._extra)).find(x => x.some(ph => Number(ph.id) === Number(id)));
       return g ? g.map(ph => Number(ph.id)) : [Number(id)];
     }
 
@@ -2698,10 +2939,12 @@ html[data-color="berry"] {
 
     async function confirmDelete() {
       const ids = sheetPhotoIds.length ? sheetPhotoIds : [sheetPhotoId];
+      const videoPaths = ids.map(pid => (photos.find(x => Number(x.id) === Number(pid)) || {}).videoPath).filter(Boolean);
       try {
         const batch = db.batch();
         ids.forEach(pid => batch.delete(db.collection('photos').doc(String(pid))));
         await batch.commit();
+        videoPaths.forEach(path => { try { if (storage) storage.ref(path).delete().catch(() => {}); } catch (e) {} });
         closeSheet();
         if (document.getElementById('image-modal').classList.contains('open')) closeModal();
         showToast('Memory removed from the app');
@@ -2740,9 +2983,10 @@ html[data-color="berry"] {
         <div class="snap-center flex-shrink-0 photo-card polaroid flex flex-col" style="--tilt:${tilt}deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${p.videoUrl ? '<span class="video-play"><span>▶</span></span>' : ''}
             ${p.pinned ? '<span class="absolute top-2 right-2 text-base bg-white/85 rounded-full w-7 h-7 flex items-center justify-center pointer-events-none">📌</span>' : ''}
             <span class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
-              #${total - index}
+              ${total ? '#' + (total - index) : '📷'}
             </span>
             ${g.length > 1 ? `<span class="stack-badge">📷 ${g.length}</span>` : ''}
           </div>
@@ -2778,6 +3022,7 @@ html[data-color="berry"] {
         <div class="polaroid" style="padding:8px 8px 8px; --tilt:0deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
             <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${p.videoUrl ? '<span class="video-play"><span>▶</span></span>' : ''}
             ${(p.pinned || p.voice) ? `<span class="absolute top-1.5 right-1.5 text-sm bg-white/85 rounded-full px-1.5 h-6 flex items-center pointer-events-none">${p.pinned ? '📌' : ''}${p.voice ? '🎙️' : ''}</span>` : ''}
             ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${escapeHtml(personEmoji(p.author))}</span>` : ''}
             ${rx ? `<span class="absolute bottom-1.5 left-1.5 bg-white/85 rounded-full px-2 h-7 flex items-center text-sm pointer-events-none">${rx}</span>` : ''}
@@ -2792,11 +3037,20 @@ html[data-color="berry"] {
       `;
     }
 
+    function renderLoadMore() {
+      const el = document.getElementById('photos-more');
+      if (!el) return;
+      if (!photosHasMore) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.classList.remove('hidden');
+      el.innerHTML = `<button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="loadMorePhotos()" ${photosLoadingMore ? 'disabled' : ''}>${photosLoadingMore ? 'Loading…' : 'Load more memories 📷'}</button>`;
+    }
+
     function renderPhotos() {
       const container = document.getElementById('photos-container');
-      const groups = buildPhotoGroups(photos);
+      const groups = buildPhotoGroups(photos.filter(x => !x._extra));
       const n = groups.length;
-      document.getElementById('photo-counter').innerText = `${n} ${n === 1 ? 'memory' : 'memories'} 💕`;
+      document.getElementById('photo-counter').innerText = `${n}${photosHasMore ? '+' : ''} ${n === 1 && !photosHasMore ? 'memory' : 'memories'} 💕`;
+      renderLoadMore();
       renderPinnedPhotos();
       updateViewButtons();
 
@@ -2829,7 +3083,7 @@ html[data-color="berry"] {
       } else {
         const keepScroll = container.scrollLeft;
         container.className = 'flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar carousel-pad';
-        container.innerHTML = groups.map((g, index) => carouselCardHtml(g, index, groups.length)).join('');
+        container.innerHTML = groups.map((g, index) => carouselCardHtml(g, index, photosHasMore ? 0 : groups.length)).join('');
         container.scrollLeft = keepScroll;
       }
     }
@@ -3358,7 +3612,7 @@ html[data-color="berry"] {
           <div class="otd-row">
             ${g.ph.map((p, i) => `
               <button type="button" class="otd-photo" style="--tilt:${i % 2 ? 2 : -2}deg" onclick="openModalById(${Number(p.id)})" aria-label="Open memory">
-                <img src="${p.imageData}" alt="Memory" loading="lazy">
+                <img src="${p.imageData}" alt="Memory" loading="lazy">${p.videoUrl ? '<span class="video-play"><span style="width:34px;height:34px;font-size:15px">▶</span></span>' : ''}
               </button>`).join('')}
             ${g.no.map((j, i) => `
               <button type="button" class="otd-note" style="--tilt:${i % 2 ? -1.5 : 1.5}deg" onclick="goToNote(${Number(j.id)})" aria-label="Open note">
@@ -4227,7 +4481,7 @@ html[data-color="berry"] {
                oninput="formatDateInput(this)" style="font-size:16px"
                class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">What is this date?</p>
-        <input id="date-title" dir="auto" type="text" maxlength="40" autocomplete="off" style="font-size:16px"
+        <input id="date-title" dir="auto" type="text" autocomplete="off" style="font-size:16px"
                class="w-full p-3 rounded-2xl border border-rose-100 focus:outline-none focus:border-rose-400 bg-rose-50/50 mb-3">
         <label class="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
           <input id="date-repeat" type="checkbox" style="width:20px;height:20px"> Repeats every year
@@ -4459,9 +4713,14 @@ html[data-color="berry"] {
                   item: ref.item != null ? String(ref.item) : '', rid: ref.rid != null ? String(ref.rid) : '', why: ref.why || '' });
       }
 
+      var prevMax = 0;
+      if (col === 'photos') Object.keys(prev).forEach(function (x) { prevMax = Math.max(prevMax, Number(x) || 0); });
+
       arr.forEach(function (d) {
         var id = String(d.id), cur = sigOf(col, d), p = prev[id], k = kindName(col, d.type);
         next[id] = cur;
+
+        if (!p && col === 'photos' && prevMax && Number(d.id) < prevMax) return;   // an older memory that was just loaded (Load more), not a new one
 
         if (!p) {                                            // brand new item
           var who = cur.o;
@@ -4524,6 +4783,7 @@ html[data-color="berry"] {
 
       Object.keys(prev).forEach(function (id) {                // deleted by the other person
         if (next[id]) return;
+        if (col === 'photos' && photosHasMore && Number(id) < photosWindowMinId) { next[id] = prev[id]; return; }   // just not loaded
         if (consumeSelf(col + ':del') || !m) return;
         var o3 = other(m), ps = prev[id];
         push(o3, '🗑️', nm(o3) + ' deleted ' + whose(ps.o, o3) + ' ' + kindName(col, ps.ty), '', { item: id, why: 'del' });
@@ -4650,6 +4910,10 @@ html[data-color="berry"] {
         return;
       }
       try { switchScreen(SCREEN[col] || 'photos'); } catch (e) {}
+      if (col === 'photos' && id && n.why !== 'del' && !itemOf2(col, id) && window.fetchPhotoById) {   // an older memory that is not loaded yet
+        window.fetchPhotoById(id).then(function (ok) { if (ok) go(n); else if (typeof showToast === 'function') showToast('This is no longer here'); });
+        return;
+      }
       if (n.why === 'del' || !id || !itemOf2(col, id)) {
         if (typeof showToast === 'function') showToast(n.why === 'del' ? 'That one was deleted 🗑️' : 'This is no longer here');
         return;
