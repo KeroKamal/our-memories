@@ -468,6 +468,9 @@ html[data-color="berry"] {
       cursor: pointer;
     }
     .polaroid-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* video cards: the saved picture sits underneath, a real frame of the video is laid on top of it */
+    .vthumb { position: relative; display: block; width: 100%; height: 100%; }
+    .vthumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; pointer-events: none; background: transparent; }
     .carousel-pad { padding: 16px 10px 22px; }
 
     .author-chip {
@@ -2195,24 +2198,45 @@ html[data-color="berry"] {
           URL.revokeObjectURL(url);
           resolve({ poster: poster || fallbackPoster(), dur: dur });
         }
+        // Many phones give a black picture for the very first moment of a video, so a few moments are tried
+        // and the brightest frame is kept.
+        let tryIdx = 0, best = null, bestLum = -1;
+        function lumaOf(canvas) {
+          try {
+            const t = document.createElement('canvas'); t.width = 16; t.height = 16;
+            const tg = t.getContext('2d'); tg.drawImage(canvas, 0, 0, 16, 16);
+            const d = tg.getImageData(0, 0, 16, 16).data; let sum = 0;
+            for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+            return sum / (d.length / 4);
+          } catch (e) { return 255; }
+        }
+        function seekNext() {
+          const d = dur || 1;
+          const times = [Math.min(0.5, d / 2), d * 0.25, d * 0.5, Math.min(1.5, d * 0.8), d * 0.1, d * 0.75];
+          if (tryIdx >= times.length) return finish(best);
+          try { v.currentTime = Math.max(0.01, Math.min(times[tryIdx++], Math.max(0.01, d - 0.05))); } catch (e) { finish(best); }
+        }
         function draw() {
           try {
             const w = v.videoWidth, h = v.videoHeight;
-            if (!w || !h) return finish(null);
+            if (!w || !h) return finish(best);
             const sc = Math.min(1, MAX_DIMENSION / Math.max(w, h));
             const c = document.createElement('canvas');
             c.width = Math.round(w * sc); c.height = Math.round(h * sc);
             c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-            finish(c.toDataURL('image/jpeg', JPEG_QUALITY));
-          } catch (e) { finish(null); }
+            const lum = lumaOf(c);
+            if (lum > bestLum) { bestLum = lum; best = c.toDataURL('image/jpeg', JPEG_QUALITY); }
+            if (lum >= 20) return finish(best);          // a real picture, not black
+            seekNext();                                  // too dark: try another moment
+          } catch (e) { finish(best); }
         }
         v.onloadedmetadata = () => {
           dur = isFinite(v.duration) ? v.duration : 0;
-          try { v.currentTime = Math.min(0.5, (dur || 1) / 2); } catch (e) {}
+          seekNext();
         };
-        v.onseeked = draw;
-        v.onerror = () => finish(null);
-        timer = setTimeout(() => { if (v.readyState >= 2) draw(); else finish(null); }, 5000);
+        v.onseeked = () => setTimeout(draw, 150);        // give the phone a moment to paint the frame
+        v.onerror = () => finish(best);
+        timer = setTimeout(() => { if (best) finish(best); else if (v.readyState >= 2) draw(); else finish(null); }, 9000);
         v.src = url;
       });
     }
@@ -2971,6 +2995,13 @@ html[data-color="berry"] {
               </button>`;
     }
 
+    // Picture for a card. For a video, a real frame of the video is shown (the picture saved at upload time can be a black frame).
+    function thumbHtml(p, alt) {
+      if (!p.videoUrl) return `<img src="${p.imageData}" alt="${alt}" loading="lazy">`;
+      return `<span class="vthumb"><img src="${p.imageData}" alt="${alt}">` +
+        `<video src="${escapeHtml(p.videoUrl)}#t=0.6" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video></span>`;
+    }
+
     function carouselCardHtml(g, index, total) {
       const p = g[0];                                   // the post is shown with its first photo
       const tilt = TILTS[index % TILTS.length];
@@ -2978,7 +3009,7 @@ html[data-color="berry"] {
       return `
         <div class="snap-center flex-shrink-0 photo-card polaroid flex flex-col" style="--tilt:${tilt}deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
-            <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${thumbHtml(p, 'Memory')}
             ${p.videoUrl ? '<span class="video-play"><span>▶</span></span>' : ''}
             ${p.pinned ? '<span class="absolute top-2 right-2 text-base bg-white/85 rounded-full w-7 h-7 flex items-center justify-center pointer-events-none">📌</span>' : ''}
             <span class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
@@ -3017,7 +3048,7 @@ html[data-color="berry"] {
       return `
         <div class="polaroid" style="padding:8px 8px 8px; --tilt:0deg">
           <div class="polaroid-img" onclick="openModalById(${Number(p.id)})">
-            <img src="${p.imageData}" alt="Memory" loading="lazy">
+            ${thumbHtml(p, 'Memory')}
             ${p.videoUrl ? '<span class="video-play"><span>▶</span></span>' : ''}
             ${(p.pinned || p.voice) ? `<span class="absolute top-1.5 right-1.5 text-sm bg-white/85 rounded-full px-1.5 h-6 flex items-center pointer-events-none">${p.pinned ? '📌' : ''}${p.voice ? '🎙️' : ''}</span>` : ''}
             ${hasAuthor ? `<span class="absolute top-1.5 left-1.5 text-sm bg-white/80 rounded-full w-6 h-6 flex items-center justify-center pointer-events-none">${escapeHtml(personEmoji(p.author))}</span>` : ''}
@@ -3608,7 +3639,7 @@ html[data-color="berry"] {
           <div class="otd-row">
             ${g.ph.map((p, i) => `
               <button type="button" class="otd-photo" style="--tilt:${i % 2 ? 2 : -2}deg" onclick="openModalById(${Number(p.id)})" aria-label="Open memory">
-                <img src="${p.imageData}" alt="Memory" loading="lazy">${p.videoUrl ? '<span class="video-play"><span style="width:34px;height:34px;font-size:15px">▶</span></span>' : ''}
+                ${thumbHtml(p, 'Memory')}${p.videoUrl ? '<span class="video-play"><span style="width:34px;height:34px;font-size:15px">▶</span></span>' : ''}
               </button>`).join('')}
             ${g.no.map((j, i) => `
               <button type="button" class="otd-note" style="--tilt:${i % 2 ? -1.5 : 1.5}deg" onclick="goToNote(${Number(j.id)})" aria-label="Open note">
@@ -4038,7 +4069,7 @@ html[data-color="berry"] {
         <div class="otd-row">
           ${pins.map((p, i) => `
             <button type="button" class="otd-photo" style="--tilt:${i % 2 ? 2 : -2}deg; width:110px" onclick="openModalById(${Number(p.id)})" aria-label="Open pinned memory">
-              <img src="${p.imageData}" alt="Pinned memory" loading="lazy">
+              ${thumbHtml(p, 'Pinned memory')}
             </button>`).join('')}
         </div>`;
     }
