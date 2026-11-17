@@ -1078,7 +1078,6 @@ html[data-color="berry"] {
         </div>
 
         <input type="file" id="photo-file-input" accept="image/*,video/*" multiple class="hidden" onchange="handleFileSelect(event)">
-        <input type="file" id="video-record-input" accept="video/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
 
         <!-- Selected photos (small polaroids) -->
         <div id="image-preview-container" class="hidden">
@@ -1091,11 +1090,6 @@ html[data-color="berry"] {
           <span id="select-photo-text">Choose photos or videos</span>
         </button>
 
-        <button id="record-video-btn" type="button" onclick="document.getElementById('video-record-input').click()"
-                class="w-full flex items-center justify-center gap-2 bg-white/70 border-2 border-dashed border-rose-300 hover:bg-rose-100/50 text-rose-600 py-4 rounded-2xl text-xs font-bold transition">
-          <i class="fas fa-video text-base"></i>
-          <span>Record a video</span>
-        </button>
 
         <div class="space-y-1.5 hidden">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Who's adding it?</p>
