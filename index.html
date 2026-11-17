@@ -5110,6 +5110,50 @@ html[data-color="berry"] {
   })();
   </script>
   <!-- =================== end Phone push notifications (added) =================== -->
+  <!-- Password / "who are you" screen: nothing of the app may show behind it, and it follows the keyboard -->
+  <style>
+    html.pw-lock, html.pw-lock body { background: var(--c50) !important; overflow: hidden !important; }
+    html.dark.pw-lock, html.dark.pw-lock body { background: var(--x16) !important; }
+    html.pw-lock body > *:not(#pass-overlay):not(#who-overlay):not(script):not(style) { visibility: hidden !important; }
+    html.pw-lock #pass-overlay, html.pw-lock #who-overlay { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  </style>
+  <script>
+  (function () {
+    'use strict';
+    var ids = ['pass-overlay', 'who-overlay'];
+    function els() { return ids.map(function (id) { return document.getElementById(id); }).filter(Boolean); }
+    function isOpen(el) { return el.classList.contains('open'); }
+
+    // iPhone: when the keyboard opens, the page slides and the area under the screen showed the app.
+    // The screen is kept exactly over what is visible (above the keyboard).
+    function sync() {
+      var vv = window.visualViewport, root = document.documentElement;
+      var locked = els().some(isOpen);
+      root.classList.toggle('pw-lock', locked);
+      els().forEach(function (el) {
+        if (locked && vv && isOpen(el)) {
+          el.style.top = vv.offsetTop + 'px';
+          el.style.bottom = 'auto';
+          el.style.height = vv.height + 'px';
+        } else {
+          el.style.top = ''; el.style.bottom = ''; el.style.height = '';
+        }
+      });
+      if (locked && vv && (vv.offsetTop || window.pageYOffset)) { try { window.scrollTo(0, 0); } catch (e) {} }
+    }
+
+    els().forEach(function (el) {
+      new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+    if (window.visualViewport) {
+      visualViewport.addEventListener('resize', sync);
+      visualViewport.addEventListener('scroll', sync);
+    }
+    window.addEventListener('orientationchange', function () { setTimeout(sync, 250); });
+    sync();
+  })();
+  </script>
+
   <!-- Bible screen (separate file) -->
   <script src="bible.js"></script>
   <link rel="stylesheet" href="effects.css">
