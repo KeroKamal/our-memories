@@ -2361,13 +2361,8 @@ html[data-color="berry"] {
           };
           if (videoInfo) Object.assign(newPhoto, videoInfo);
           if (voiceState.photo.data) {
-            // a Firestore document must stay under 1 MiB
-            if (compressed.length + voiceState.photo.data.length < 950000) {
-              newPhoto.voice = voiceState.photo.data;
-              newPhoto.voiceDur = voiceState.photo.dur;
-            } else {
-              showToast('Photo + voice note too big. Saved the photo without the voice note.');
-            }
+            try { Object.assign(newPhoto, await voiceFields('photo', newPhoto.id, compressed.length)); }
+            catch (e) { console.error(e); showToast('Could not save the voice note (is Firebase Storage on?). Saved the photo without it.'); }
           }
           await db.collection('photos').doc(newPhoto.id.toString()).set(newPhoto);
 
@@ -2519,7 +2514,7 @@ html[data-color="berry"] {
       };
 
       try {
-        if (voiceState.journal.data) { newEntry.voice = voiceState.journal.data; newEntry.voiceDur = voiceState.journal.dur; }
+        if (voiceState.journal.data) Object.assign(newEntry, await voiceFields('journal', newEntry.id, 0));
         await db.collection('journal').doc(newEntry.id.toString()).set(newEntry);
         textInput.value = '';
         discardVoice('journal');
@@ -2983,7 +2978,7 @@ html[data-color="berry"] {
 
     async function confirmDelete() {
       const ids = sheetPhotoIds.length ? sheetPhotoIds : [sheetPhotoId];
-      const videoPaths = ids.map(pid => (photos.find(x => Number(x.id) === Number(pid)) || {}).videoPath).filter(Boolean);
+      const videoPaths = [].concat(...ids.map(pid => { const x = photos.find(y => Number(y.id) === Number(pid)) || {}; return [x.videoPath, x.voicePath]; })).filter(Boolean);
       try {
         const batch = db.batch();
         ids.forEach(pid => batch.delete(db.collection('photos').doc(String(pid))));
@@ -4101,7 +4096,7 @@ html[data-color="berry"] {
     // =====================================================================
     // Voice notes (record -> small audio file stored inside the note)
     // =====================================================================
-    const MAX_VOICE_SECONDS = 60;
+    const MAX_VOICE_SECONDS = 300;   // 5 minutes
     const voiceState = { journal: { data: null, dur: 0 }, photo: { data: null, dur: 0 } };
     let rec = null;                 // the recording in progress
     let curAudio = null;            // the audio that is playing right now
@@ -4177,9 +4172,23 @@ html[data-color="berry"] {
       }
     }
 
+    // Short notes stay inside the database document; long ones go to Firebase Storage and the note keeps the link.
+    async function voiceFields(ctx, id, usedBytes) {
+      const st = voiceState[ctx];
+      if (!st || !st.data) return null;
+      if (usedBytes + st.data.length < 700000) return { voice: st.data, voiceDur: st.dur };
+      if (!storage || !st.blob) throw new Error('voice-too-big');
+      const type = st.blob.type || 'audio/mp4';
+      const ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
+      const path = 'voices/' + id + '.' + ext;
+      await storage.ref(path).put(st.blob, { contentType: type.split(';')[0] });
+      const url = await storage.ref(path).getDownloadURL();
+      return { voice: url, voiceDur: st.dur, voicePath: path };
+    }
+
     function discardVoice(ctx) {
       if (curVoiceKey === 'preview:' + ctx && curAudio) { curAudio.pause(); curAudio = null; curVoiceKey = null; }
-      voiceState[ctx] = { data: null, dur: 0 };
+      voiceState[ctx] = { data: null, dur: 0, blob: null };
       renderVoiceUi(ctx);
     }
 
@@ -4222,10 +4231,8 @@ html[data-color="berry"] {
           const dataUrl = await readAsDataURL(blob);
           if (dur < 0.7 || blob.size < 500) {
             showToast('That was too short 🙈');
-          } else if (dataUrl.length > 450000) {
-            showToast('Voice note too long. Try a shorter one.');
           } else {
-            voiceState[ctx] = { data: dataUrl, dur: dur };
+            voiceState[ctx] = { data: dataUrl, dur: dur, blob: blob };
           }
         } catch (e) {
           console.error(e);
