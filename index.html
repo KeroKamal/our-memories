@@ -1530,8 +1530,15 @@ html[data-color="berry"] {
 
     const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
+    // the picture or the video, whichever one is showing right now
+    function mediaEl() {
+      const v = document.getElementById('modal-video');
+      return (v && !v.classList.contains('hidden')) ? v : document.getElementById('modal-image');
+    }
+    function videoShowing() { return mediaEl().id === 'modal-video'; }
+
     function applyTransform(animate) {
-      const img = document.getElementById('modal-image');
+      const img = mediaEl();
       img.style.transition = animate ? 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' : 'none';
       img.style.transform = `translate(${zX}px, ${zY}px) scale(${zScale})`;
       isZoomed = zScale > 1.01;
@@ -1568,7 +1575,7 @@ html[data-color="berry"] {
 
     function resetZoom(animate) {
       zScale = 1; zX = 0; zY = 0;
-      const img = document.getElementById('modal-image');
+      const img = mediaEl();
       img.style.opacity = '1';
       applyTransform(animate);
     }
@@ -1618,7 +1625,7 @@ html[data-color="berry"] {
       if (!photo) return;
       currentPhotoId = photo.id;
 
-      const img = document.getElementById('modal-image');
+      let img = document.getElementById('modal-image');
       document.getElementById('modal-caption').textContent = photo.caption || '';
       document.getElementById('modal-date').textContent = formatPhotoDate(photo);
       img.src = photo.imageData;
@@ -1641,6 +1648,8 @@ html[data-color="berry"] {
       isZoomed = false;
       document.getElementById('zoom-icon').className = 'fas fa-search-plus';
 
+      img.style.transform = ''; vid.style.transform = ''; vid.style.opacity = '';
+      img = mediaEl();                  // the one that is showing (picture or video)
       if (direction) {
         // start off to the side + transparent, then slide in
         img.style.transition = 'none';
@@ -1701,9 +1710,9 @@ html[data-color="berry"] {
     function setupZoomGestures() {
       const cont = document.getElementById('modal-image-container');
       const modal = document.getElementById('image-modal');
-      const modalImg = document.getElementById('modal-image');
 
       let mode = null;                 // 'pan' | 'pinch' | null
+      let ignore = false;              // true while a touch belongs to the video's own controls
       let axis = null;                 // 'h' | 'v' | null (direction of a one-finger drag when not zoomed)
       let startDist = 0, startScale = 1, startX = 0, startY = 0, startMid = { x: 0, y: 0 };
       let panTouch = { x: 0, y: 0 }, panStartX = 0, panStartY = 0, moved = false;
@@ -1720,7 +1729,18 @@ html[data-color="berry"] {
         panStartX = zX; panStartY = zY;
       }
 
+      // The bottom strip of a video is the player's own bar (play, scrub, full screen): leave it alone.
+      function onVideoControls(t) {
+        if (!videoShowing()) return false;
+        const r = document.getElementById('modal-video').getBoundingClientRect();
+        return t.clientY > r.bottom - 64;
+      }
+
       cont.addEventListener('touchstart', (e) => {
+        ignore = false;
+        if (videoShowing()) {
+          if (e.touches.length !== 1 || onVideoControls(e.touches[0])) { ignore = true; mode = null; return; }   // no pinch on videos
+        }
         if (e.touches.length === 2) {
           e.preventDefault();
           mode = 'pinch';
@@ -1737,6 +1757,7 @@ html[data-color="berry"] {
       }, { passive: false });
 
       cont.addEventListener('touchmove', (e) => {
+        if (ignore) return;
         if (mode === 'pinch' && e.touches.length === 2) {
           e.preventDefault();
           const m = mid(e.touches[0], e.touches[1]);
@@ -1750,11 +1771,11 @@ html[data-color="berry"] {
           clampPan();
           applyTransform(false);
         } else if (mode === 'pan' && e.touches.length === 1) {
-          e.preventDefault();
           const t = e.touches[0];
           const dx = t.clientX - panTouch.x;
           const dy = t.clientY - panTouch.y;
           if (Math.hypot(dx, dy) > 8) moved = true;
+          if (!videoShowing() || moved) e.preventDefault();   // a plain tap on a video must still reach the player
           if (zScale > 1.01) {
             // zoomed in: move the image around
             zX = panStartX + dx;
@@ -1764,6 +1785,7 @@ html[data-color="berry"] {
           } else if (!gestureWasPinch && moved) {
             // not zoomed: decide once whether this is a sideways swipe or a swipe down
             if (!axis) axis = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
+            const modalImg = mediaEl();
             modalImg.style.transition = 'none';
             if (axis === 'v') {
               // image follows the finger, background fades, image shrinks a little (like iPhone Photos)
@@ -1781,6 +1803,7 @@ html[data-color="berry"] {
       }, { passive: false });
 
       cont.addEventListener('touchend', (e) => {
+        if (ignore) { if (e.touches.length === 0) ignore = false; return; }
         if (e.touches.length === 0) {
           const t = e.changedTouches[0];
           let swiped = false;
@@ -1788,7 +1811,7 @@ html[data-color="berry"] {
 
           if (mode === 'pan' && !moved) {
             const now = Date.now();
-            if (now - lastTap < 300 && Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y) < 40) {
+            if (!videoShowing() && now - lastTap < 300 && Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y) < 40) {
               // DOUBLE TAP -> heart
               e.preventDefault();
               lastTap = 0;
@@ -1825,6 +1848,7 @@ html[data-color="berry"] {
       }, { passive: false });
 
       cont.addEventListener('touchcancel', () => {
+        ignore = false;
         mode = null;
         axis = null;
         if (zScale < 1.01) resetZoom(true);
@@ -1851,8 +1875,7 @@ html[data-color="berry"] {
     document.addEventListener('DOMContentLoaded', () => {
       setupZoomGestures();
       document.getElementById('modal-image').setAttribute('draggable', 'false');
-      // touches on the video player belong to the player (play, pause, scrub), not to the photo gestures
-      ['touchstart', 'touchmove', 'touchend'].forEach(ev => document.getElementById('modal-video').addEventListener(ev, e => e.stopPropagation(), { passive: true }));
+      // (touches on the video now reach the swipe gestures too; only the player's own bar at the bottom is left alone)
 
       document.addEventListener('keydown', (e) => {
         const open = document.getElementById('image-modal').classList.contains('open');
@@ -2530,6 +2553,7 @@ html[data-color="berry"] {
 
     // Used by the zoom button in the top bar: zoom in at the center / zoom back out
     function toggleZoom() {
+      if (videoShowing()) return;      // videos are not zoomed
       if (zScale > 1.01) {
         resetZoom(true);
       } else {
