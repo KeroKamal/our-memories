@@ -1429,7 +1429,7 @@ html[data-color="berry"] {
     let isUploading = false;
 
     let photos = [];                 // everything this phone knows about (the loaded page + a few old ones fetched on purpose)
-    const PHOTO_PAGE = 30;           // memories loaded at start; "Load more" adds this many again
+    const PHOTO_PAGE = 10;           // memories loaded at start; "Load more" adds this many again
     let photoLimit = PHOTO_PAGE;
     let photoPage = [];              // the newest photos (the page that is loaded)
     let photosHasMore = false;       // are there older memories that are not loaded yet?
@@ -1885,11 +1885,11 @@ html[data-color="berry"] {
       });
     });
 
-    // Only the newest memories are downloaded (30 at first). "Load more" asks for 30 more.
+    // Only the newest memories are downloaded (10 at first). "Load more" asks for 10 more.
     // A few extra documents are read so that a post (several photos added together) is never cut in half.
     function startPhotosListener() {
       if (photosUnsub) photosUnsub();
-      const EXTRA = 12;
+      const EXTRA = 9;           // a post holds at most 10 photos
       const max = photoLimit + EXTRA;
       photosUnsub = db.collection('photos').orderBy('id', 'desc').limit(max).onSnapshot(snapshot => {
         const docs = snapshot.docs.map(doc => doc.data());
