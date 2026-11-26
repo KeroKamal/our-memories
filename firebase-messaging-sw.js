@@ -72,11 +72,20 @@ self.addEventListener('fetch', function (event) {
   const sameOrigin = url.origin === self.location.origin;
 
   // The page itself: always try the network first so updates arrive, fall back to the saved copy.
+  // On a slow connection the saved copy is shown after 2 seconds instead of waiting for the network;
+  // the fresh copy keeps downloading in the background and is used the next time.
   if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).then(function (res) { return putCopy(new Request('index.html'), res); })
-        .catch(function () { return caches.match('index.html').then(function (m) { return m || caches.match('./'); }); })
-    );
+    event.respondWith((async function () {
+      const saved = async function () { return (await caches.match('index.html')) || (await caches.match('./')); };
+      const net = fetch(req).then(function (res) { return putCopy(new Request('index.html'), res); });
+      event.waitUntil(net.catch(function () {}));
+      const hit = await saved();
+      if (!hit) return net.catch(function () { return saved(); });
+      return Promise.race([
+        net.catch(function () { return hit; }),
+        new Promise(function (resolve) { setTimeout(function () { resolve(hit); }, 2000); })
+      ]);
+    })());
     return;
   }
 
