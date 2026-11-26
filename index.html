@@ -21,13 +21,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
   <meta name="theme-color" content="#ffffff">
   <!-- Apply the saved (or system) theme before the page paints, so there is no white flash at night -->
   <script>
@@ -1197,6 +1197,7 @@ html[data-color="berry"] {
       <div id="journal-feed" class="relative z-10 space-y-7 pt-3">
         <!-- Dynamically Populated -->
       </div>
+      <div id="journal-more" class="hidden relative z-10" style="margin-top:1.25rem"></div>
 
       <!-- Floating hearts (decoration only) -->
       <div class="journal-hearts" aria-hidden="true">
@@ -1411,8 +1412,24 @@ html[data-color="berry"] {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;   // videos live in Firebase Storage
+    // Videos and long voice notes live in Firebase Storage. Its code is only downloaded the first time it is needed.
+    let storage = null, storagePromise = null;
+    function ensureStorage() {
+      if (storage) return Promise.resolve(storage);
+      if (!storagePromise) storagePromise = new Promise((resolve, reject) => {
+        const ready = () => { try { storage = firebase.storage(); resolve(storage); } catch (e) { storagePromise = null; reject(e); } };
+        if (typeof firebase.storage === 'function') return ready();
+        const sc = document.createElement('script');
+        sc.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js';
+        sc.onload = ready;
+        sc.onerror = () => { storagePromise = null; const e = new Error('Storage is not available'); e.code = 'storage/unavailable'; reject(e); };
+        document.head.appendChild(sc);
+      });
+      return storagePromise;
+    }
     // Keep a copy of the data on the phone: the app opens instantly and still works with no signal.
+    // Weak or filtered connections: let Firestore fall back to a simpler connection type by itself.
+    try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) {}
     try { db.enablePersistence({ synchronizeTabs: true }).catch(function (e) { console.warn('offline cache off:', e && e.code); }); } catch (e) {}
 
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylOiP_Pnprl_PoDC4_KGDYJgeFnwMuEeXbhsK7oY7FLEVPyYorlHEqAB7bky0AZhsZ/exec';
@@ -1438,6 +1455,9 @@ html[data-color="berry"] {
     let pinnedDocs = [], otdDocs = [], openedDocs = [];   // old photos fetched on purpose (pinned, "on this day", opened from a notification)
     let photosUnsub = null;
     let journal = [];
+    const NOTE_PAGE = 5;                              // notes loaded at start; "Load more" adds this many again
+    let noteLimit = NOTE_PAGE, journalPage = [], notePinnedDocs = [], noteOtdDocs = [], noteOpenedDocs = [];
+    let journalHasMore = false, journalWindowMinId = 0, journalLoadingMore = false, journalUnsub = null, journalTopId = 0;
     let currentPhotoId = null;       // id of the photo shown in the lightbox
     let sheetPhotoId = null;         // id of the photo the bottom sheet is about
     let sheetPhotoIds = [];          // every photo of the post that the sheet is about (edit / delete apply to all)
@@ -1889,7 +1909,7 @@ html[data-color="berry"] {
     // A few extra documents are read so that a post (several photos added together) is never cut in half.
     function startPhotosListener() {
       if (photosUnsub) photosUnsub();
-      const EXTRA = 9;           // a post holds at most 10 photos
+      const EXTRA = 0;           // read nothing beyond the page, so the first screen downloads as little as possible
       const max = photoLimit + EXTRA;
       photosUnsub = db.collection('photos').orderBy('id', 'desc').limit(max).onSnapshot(snapshot => {
         const docs = snapshot.docs.map(doc => doc.data());
@@ -1906,7 +1926,7 @@ html[data-color="berry"] {
         photosLoadingMore = false;
         mergePhotos();
         afterPhotosChanged();
-        fetchOtdExtras();
+        scheduleOtd();
       }, err => { photosLoadingMore = false; console.error('photos listener error', err); });
     }
 
@@ -1943,11 +1963,20 @@ html[data-color="berry"] {
     }
 
     // pinned memories are always shown, even when they are older than the loaded page
-    db.collection('photos').where('pinned', '==', true).onSnapshot(snap => {
-      pinnedDocs = snap.docs.map(d => d.data());
-      mergePhotos();
-      afterPhotosChanged();
-    }, err => console.error('pinned listener error', err));
+    // pinned memories are fetched a moment AFTER the newest ones, so the first screen is not slowed down
+    setTimeout(() => {
+      db.collection('photos').where('pinned', '==', true).onSnapshot(snap => {
+        pinnedDocs = snap.docs.map(d => d.data());
+        mergePhotos();
+        afterPhotosChanged();
+      }, err => console.error('pinned listener error', err));
+    }, 1500);
+
+    let otdTimer = null, otdFirstDone = false;
+    function scheduleOtd() {
+      clearTimeout(otdTimer);
+      otdTimer = setTimeout(() => { otdFirstDone = true; fetchOtdExtras(); fetchOtdJournal(); }, otdFirstDone ? 300 : 3000);
+    }
 
     // "On this day": the day a month / a year ago may be older than the loaded page, so ask for exactly those days
     let otdKey = '';
@@ -1985,12 +2014,95 @@ html[data-color="berry"] {
 
     startPhotosListener();
 
-    db.collection('journal').orderBy('id', 'desc').onSnapshot(snapshot => {
-      journal = snapshot.docs.map(doc => doc.data());
+    // Only the newest notes are downloaded (5 at first). Pinned notes arrive a moment later.
+    function startJournalListener() {
+      if (journalUnsub) journalUnsub();
+      const max = noteLimit;
+      journalUnsub = db.collection('journal').orderBy('id', 'desc').limit(max).onSnapshot(snapshot => {
+        const docs = snapshot.docs.map(doc => doc.data());
+        journalHasMore = docs.length >= max;
+        journalPage = docs;
+        journalWindowMinId = docs.length ? Math.min.apply(null, docs.map(x => Number(x.id))) : 0;
+        journalLoadingMore = false;
+        mergeJournal();
+        afterJournalChanged();
+        scheduleOtd();
+      }, err => { journalLoadingMore = false; console.error('journal listener error', err); });
+    }
+
+    function mergeJournal() {
+      const have = new Set(journalPage.map(x => Number(x.id)));
+      const extras = [];
+      [notePinnedDocs, noteOtdDocs, noteOpenedDocs].forEach(list => list.forEach(x => {
+        if (!have.has(Number(x.id))) { have.add(Number(x.id)); extras.push(x); }
+      }));
+      journal = journalPage.concat(extras).sort((a, b) => Number(b.id) - Number(a.id));
+    }
+
+    function afterJournalChanged() {
       renderJournal();
       refreshReplySheet();
       renderOnThisDay();
-    }, err => console.error('journal listener error', err));
+    }
+
+    function loadMoreNotes() {
+      if (journalLoadingMore) return;
+      journalLoadingMore = true;
+      noteLimit += NOTE_PAGE;
+      renderNotesMore();
+      startJournalListener();
+    }
+
+    function renderNotesMore() {
+      const el = document.getElementById('journal-more');
+      if (!el) return;
+      if (!journalHasMore) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      el.classList.remove('hidden');
+      el.innerHTML = `<button type="button" class="sheet-btn bg-rose-50 text-rose-600" onclick="loadMoreNotes()" ${journalLoadingMore ? 'disabled' : ''}>${journalLoadingMore ? 'Loading…' : 'Load more notes 💌'}</button>`;
+    }
+
+    startJournalListener();
+    setTimeout(() => {
+      db.collection('journal').where('pinned', '==', true).onSnapshot(snap => {
+        notePinnedDocs = snap.docs.map(d => d.data());
+        mergeJournal();
+        afterJournalChanged();
+      }, err => console.error('pinned notes listener error', err));
+    }, 1500);
+
+    // "On this day" for notes older than the loaded page
+    let noteOtdKey = '';
+    async function fetchOtdJournal() {
+      if (!journalHasMore) { if (noteOtdDocs.length) { noteOtdDocs = []; mergeJournal(); afterJournalChanged(); } return; }
+      const d = new Date();
+      const key = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + '|' + journalWindowMinId;
+      if (key === noteOtdKey) return;
+      noteOtdKey = key;
+      try {
+        const found = [];
+        await Promise.all(otdTargets().map(async t => {
+          const start = new Date(t.y, t.m, t.d).getTime(), end = new Date(t.y, t.m, t.d + 1).getTime();
+          if (start >= journalWindowMinId) return;
+          const snap = await db.collection('journal').where('id', '>=', start).where('id', '<', end).get();
+          snap.docs.forEach(x => found.push(x.data()));
+        }));
+        noteOtdDocs = found;
+        mergeJournal();
+        afterJournalChanged();
+      } catch (err) { noteOtdKey = ''; console.error('on this day (notes) fetch error', err); }
+    }
+
+    // open an old note that is not loaded (for example from a notification)
+    window.fetchNoteById = async function (id) {
+      try {
+        const doc = await db.collection('journal').doc(String(id)).get();
+        if (!doc.exists) return false;
+        noteOpenedDocs = noteOpenedDocs.filter(x => Number(x.id) !== Number(id)).concat([doc.data()]);
+        mergeJournal();
+        afterJournalChanged();
+        return true;
+      } catch (err) { console.error(err); return false; }
+    };
 
     const SCREEN_ORDER = ['photos', 'journal', 'list', 'dates', 'settings'];
     let currentScreen = 'photos';
@@ -2139,6 +2251,7 @@ html[data-color="berry"] {
       let files = Array.from(event.target.files || []).filter(f => (f.type && f.type.indexOf('image/') === 0) || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name) || isVideoFile(f));
       event.target.value = '';           // lets you pick the very same photo again later
       if (!files.length || isUploading) return;
+      if (files.some(isVideoFile)) ensureStorage().catch(() => {});     // start loading the upload code now
 
       const tooBig = files.filter(f => isVideoFile(f) && f.size > MAX_VIDEO_MB * 1024 * 1024);
       if (tooBig.length) { showToast(`A video is too big (the limit is ${MAX_VIDEO_MB} MB) 🎥`); files = files.filter(f => tooBig.indexOf(f) === -1); }
@@ -2265,8 +2378,7 @@ html[data-color="berry"] {
     }
 
     function uploadVideoToStorage(file, id, onProgress) {
-      return new Promise((resolve, reject) => {
-        if (!storage) { const e = new Error('Storage is not available'); e.code = 'storage/unavailable'; return reject(e); }
+      return ensureStorage().then(storage => new Promise((resolve, reject) => {
         const ext = (((file.name || '').match(/\.([a-z0-9]+)$/i) || [])[1] || 'mp4').toLowerCase();
         const path = 'videos/' + id + '.' + ext;
         const mime = file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4');
@@ -2275,7 +2387,7 @@ html[data-color="berry"] {
           snap => onProgress(snap.bytesTransferred / Math.max(1, snap.totalBytes)),
           reject,
           async () => { try { resolve({ url: await task.snapshot.ref.getDownloadURL(), path: path, mime: mime }); } catch (e) { reject(e); } });
-      });
+      }));
     }
 
     async function uploadMemory() {
@@ -2983,7 +3095,7 @@ html[data-color="berry"] {
         const batch = db.batch();
         ids.forEach(pid => batch.delete(db.collection('photos').doc(String(pid))));
         await batch.commit();
-        videoPaths.forEach(path => { try { if (storage) storage.ref(path).delete().catch(() => {}); } catch (e) {} });
+        if (videoPaths.length) ensureStorage().then(st => videoPaths.forEach(path => st.ref(path).delete().catch(() => {}))).catch(() => {});
         closeSheet();
         if (document.getElementById('image-modal').classList.contains('open')) closeModal();
         showToast('Memory removed from the app');
@@ -3136,6 +3248,7 @@ html[data-color="berry"] {
 
     function renderJournal() {
       const journalFeed = document.getElementById('journal-feed');
+      renderNotesMore();
 
       if (journal.length === 0) {
         journalFeed.innerHTML = `
@@ -3152,7 +3265,7 @@ html[data-color="berry"] {
       journalFeed.innerHTML = feed.map((j, index) => {
         const kind = authorKind(j.author);
         const key = String(j.id);
-        const isNew = !journalFirstRender && !renderedJournalIds.has(key);
+        const isNew = !journalFirstRender && !renderedJournalIds.has(key) && Number(j.id) > journalTopId;   // older notes that were just loaded are not "new"
         const liked = journalLiked.has(key);
         const hearts = Math.max(0, Number(j.hearts) || 0);
         const icon = escapeHtml(personEmoji(j.author));
@@ -3186,7 +3299,7 @@ html[data-color="berry"] {
         `;
       }).join('');
 
-      journal.forEach(j => renderedJournalIds.add(String(j.id)));
+      journal.forEach(j => { renderedJournalIds.add(String(j.id)); journalTopId = Math.max(journalTopId, Number(j.id) || 0); });
       journalFirstRender = false;
     }
 
@@ -4177,7 +4290,8 @@ html[data-color="berry"] {
       const st = voiceState[ctx];
       if (!st || !st.data) return null;
       if (usedBytes + st.data.length < 700000) return { voice: st.data, voiceDur: st.dur };
-      if (!storage || !st.blob) throw new Error('voice-too-big');
+      if (!st.blob) throw new Error('voice-too-big');
+      const storage = await ensureStorage();
       const type = st.blob.type || 'audio/mp4';
       const ext = /webm/.test(type) ? 'webm' : /ogg/.test(type) ? 'ogg' : 'm4a';
       const path = 'voices/' + id + '.' + ext;
@@ -4194,6 +4308,7 @@ html[data-color="berry"] {
 
     async function startRecording(ctx) {
       if (rec) return;
+      ensureStorage().catch(() => {});        // a long note is uploaded when you save it
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
         showToast('Voice recording is not supported here');
         return;
@@ -4772,13 +4887,13 @@ html[data-color="berry"] {
       }
 
       var prevMax = 0;
-      if (col === 'photos') Object.keys(prev).forEach(function (x) { prevMax = Math.max(prevMax, Number(x) || 0); });
+      if (col === 'photos' || col === 'journal') Object.keys(prev).forEach(function (x) { prevMax = Math.max(prevMax, Number(x) || 0); });
 
       arr.forEach(function (d) {
         var id = String(d.id), cur = sigOf(col, d), p = prev[id], k = kindName(col, d.type);
         next[id] = cur;
 
-        if (!p && col === 'photos' && prevMax && Number(d.id) < prevMax) return;   // an older memory that was just loaded (Load more), not a new one
+        if (!p && (col === 'photos' || col === 'journal') && prevMax && Number(d.id) < prevMax) return;   // an older memory that was just loaded (Load more), not a new one
 
         if (!p) {                                            // brand new item
           var who = cur.o;
@@ -4842,6 +4957,7 @@ html[data-color="berry"] {
       Object.keys(prev).forEach(function (id) {                // deleted by the other person
         if (next[id]) return;
         if (col === 'photos' && photosHasMore && Number(id) < photosWindowMinId) { next[id] = prev[id]; return; }   // just not loaded
+        if (col === 'journal' && journalHasMore && Number(id) < journalWindowMinId) { next[id] = prev[id]; return; }   // just not loaded
         if (consumeSelf(col + ':del') || !m) return;
         var o3 = other(m), ps = prev[id];
         push(o3, '🗑️', nm(o3) + ' deleted ' + whose(ps.o, o3) + ' ' + kindName(col, ps.ty), '', { item: id, why: 'del' });
@@ -4888,7 +5004,7 @@ html[data-color="berry"] {
       if (s < 172800) return 'Yesterday';
       return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-    var NOTIF_PAGE = 10, notifShown = NOTIF_PAGE;       // only the newest ones first; "Read more" shows the next batch
+    var NOTIF_PAGE = 5, notifShown = NOTIF_PAGE;       // only the newest ones first; "Read more" shows the next batch
     function render() {
       var list = visible(), unread = list.filter(function (n) { return n.t > readAt; }).length;
       var badge = document.getElementById('notif-badge');
@@ -4968,8 +5084,9 @@ html[data-color="berry"] {
         return;
       }
       try { switchScreen(SCREEN[col] || 'photos'); } catch (e) {}
-      if (col === 'photos' && id && n.why !== 'del' && !itemOf2(col, id) && window.fetchPhotoById) {   // an older memory that is not loaded yet
-        window.fetchPhotoById(id).then(function (ok) { if (ok) go(n); else if (typeof showToast === 'function') showToast('This is no longer here'); });
+      var fetchOld = col === 'photos' ? window.fetchPhotoById : col === 'journal' ? window.fetchNoteById : null;
+      if (fetchOld && id && n.why !== 'del' && !itemOf2(col, id)) {   // an older memory / note that is not loaded yet
+        fetchOld(id).then(function (ok) { if (ok) go(n); else if (typeof showToast === 'function') showToast('This is no longer here'); });
         return;
       }
       if (n.why === 'del' || !id || !itemOf2(col, id)) {
